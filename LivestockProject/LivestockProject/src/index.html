@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livestock Management Dashboard</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .container { max-width: 1200px; }
+        .card-header { font-size: 1.25rem; }
+        .table-actions { white-space: nowrap; }
+        .form-card { position: sticky; top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container mt-4">
+        <header class="text-center mb-4">
+            <h1>Livestock Management Dashboard</h1>
+            <p class="lead">A central place to manage all your livestock records.</p>
+        </header>
+
+        <div class="row">
+            <!-- Form for Adding/Editing Livestock -->
+            <div class="col-lg-4">
+                <div class="card form-card">
+                    <div class="card-header bg-dark text-white" id="form-title">Add New Livestock</div>
+                    <div class="card-body">
+                        <form id="livestock-form">
+                            <input type="hidden" id="livestock-id">
+                            <div class="mb-3">
+                                <label for="species" class="form-label">Species</label>
+                                <input type="text" class="form-control" id="species" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="breed" class="form-label">Breed</label>
+                                <input type="text" class="form-control" id="breed" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="age" class="form-label">Age (years)</label>
+                                <input type="number" class="form-control" id="age" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="weight" class="form-label">Weight (kg)</label>
+                                <input type="number" step="0.1" class="form-control" id="weight" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="health-status" class="form-label">Health Status</label>
+                                <select class="form-select" id="health-status">
+                                    <option>Healthy</option>
+                                    <option>Sick</option>
+                                    <option>Under Treatment</option>
+                                    <option>Quarantined</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Save Livestock</button>
+                            <button type="button" class="btn btn-secondary w-100 mt-2" id="cancel-edit" style="display: none;">Cancel Edit</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table for Displaying Livestock -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">Current Livestock Records</div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Species</th>
+                                        <th>Breed</th>
+                                        <th>Age</th>
+                                        <th>Weight (kg)</th>
+                                        <th>Health Status</th>
+                                        <th>Registered</th>
+                                        <th class="table-actions">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="livestock-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('livestock-form');
+            const formTitle = document.getElementById('form-title');
+            const tableBody = document.getElementById('livestock-table-body');
+            const cancelBtn = document.getElementById('cancel-edit');
+
+            const API_URL = '/api/livestock';
+
+            const fetchLivestock = async () => {
+                try {
+                    const response = await fetch(API_URL);
+                    if (!response.ok) throw new Error('Failed to fetch data from server.');
+                    
+                    const livestock = await response.json();
+                    
+                    tableBody.innerHTML = '';
+                    if (livestock.length === 0) {
+                        tableBody.innerHTML = `<tr><td colspan="8" class="text-center">No livestock records found.</td></tr>`;
+                    } else {
+                        livestock.forEach(animal => {
+                            const row = document.createElement('tr');
+                            const regDate = new Date(animal.registration_date).toLocaleDateString();
+
+                            row.innerHTML = `
+                                <td>${animal.id}</td>
+                                <td>${animal.species}</td>
+                                <td>${animal.breed}</td>
+                                <td>${animal.age}</td>
+                                <td>${animal.weight}</td>
+                                <td>${animal.health_status}</td>
+                                <td>${regDate}</td>
+                                <td class="table-actions">
+                                    <button class="btn btn-sm btn-warning edit-btn" data-id="${animal.id}">Edit</button>
+                                    <button class="btn btn-sm btn-danger delete-btn" data-id="${animal.id}">Delete</button>
+                                </td>
+                            `;
+                            row.dataset.animalData = JSON.stringify(animal);
+                            tableBody.appendChild(row);
+                        });
+                    }
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    tableBody.innerHTML = `<tr><td colspan="8" class="text-center">Failed to load data. Is the server running?</td></tr>`;
+                }
+            };
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('livestock-id').value;
+                const livestockData = {
+                    species: document.getElementById('species').value,
+                    breed: document.getElementById('breed').value,
+                    age: parseInt(document.getElementById('age').value),
+                    weight: parseFloat(document.getElementById('weight').value),
+                    health_status: document.getElementById('health-status').value
+                };
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `${API_URL}/${id}` : API_URL;
+
+                try {
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(livestockData)
+                    });
+                    if (!response.ok) throw new Error('Failed to save data.');
+                    
+                    resetForm();
+                    await fetchLivestock();
+                } catch (error) {
+                    console.error('Submit error:', error);
+                    alert(`Error: ${error.message}`);
+                }
+            });
+
+            tableBody.addEventListener('click', async (e) => {
+                const target = e.target;
+                const id = target.dataset.id;
+
+                if (target.classList.contains('edit-btn')) {
+                    const row = target.closest('tr');
+                    const animalData = JSON.parse(row.dataset.animalData);
+
+                    formTitle.textContent = 'Edit Livestock Record';
+                    document.getElementById('livestock-id').value = animalData.id;
+                    document.getElementById('species').value = animalData.species;
+                    document.getElementById('breed').value = animalData.breed;
+                    document.getElementById('age').value = animalData.age;
+                    document.getElementById('weight').value = animalData.weight;
+                    document.getElementById('health-status').value = animalData.health_status;
+                    cancelBtn.style.display = 'block';
+                    window.scrollTo(0, 0);
+                }
+
+                if (target.classList.contains('delete-btn')) {
+                    if (confirm(`Are you sure you want to delete livestock ID ${id}?`)) {
+                        try {
+                            const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                            if (!response.ok) throw new Error('Failed to delete.');
+                            await fetchLivestock();
+                        } catch (error) {
+                            console.error('Delete error:', error);
+                            alert(`Error: ${error.message}`);
+                        }
+                    }
+                }
+            });
+            
+            const resetForm = () => {
+                formTitle.textContent = 'Add New Livestock';
+                form.reset();
+                document.getElementById('livestock-id').value = '';
+                cancelBtn.style.display = 'none';
+            };
+            
+            cancelBtn.addEventListener('click', resetForm);
+            fetchLivestock();
+        });
+    </script>
+</body>
+</html>
