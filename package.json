@@ -1,0 +1,8 @@
+{
+  "name": "livestock-tracking-app",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "mvn jetty:run -Djetty.http.port=9090",
+    "build": "mvn clean package"
+  }
+}

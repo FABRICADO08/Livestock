@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livestock Management Dashboard</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .container { max-width: 1200px; }
+        .card { border: none; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); }
+        .card-header { font-size: 1.25rem; font-weight: bold; }
+        .table-actions { white-space: nowrap; width: 150px; }
+        .form-card { position: sticky; top: 20px; }
+        .badge-health { font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+
+    <div class="container mt-4">
+        <header class="text-center mb-5">
+            <h1 class="display-5 fw-bold">Livestock Management Dashboard</h1>
+            <p class="text-muted">Manage your Cattle and Sheep records with ease.</p>
+        </header>
+
+        <div class="row">
+            <!-- Form for Adding/Editing Livestock -->
+            <div class="col-lg-4 mb-4">
+                <div class="card form-card">
+                    <div class="card-header bg-primary text-white" id="form-title">Add New Livestock</div>
+                    <div class="card-body">
+                        <form id="livestock-form">
+                            <!-- Hidden input to store ID during edits -->
+                            <input type="hidden" id="livestock-id">
+                            
+                            <div class="mb-3">
+                                <label for="species" class="form-label fw-bold">Species</label>
+                                <select class="form-select" id="species" required>
+                                    <option value="" selected disabled>Choose Species...</option>
+                                    <option value="Cattle">Cattle</option>
+                                    <option value="Sheep">Sheep</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="breed" class="form-label fw-bold">Breed</label>
+                                <select class="form-select" id="breed" required disabled>
+                                    <option value="" selected disabled>Select species first...</option>
+                                </select>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="age" class="form-label fw-bold">Age (years)</label>
+                                    <input type="number" class="form-control" id="age" min="0" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="weight" class="form-label fw-bold">Weight (kg)</label>
+                                    <input type="number" step="0.1" class="form-control" id="weight" min="0" required>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="health-status" class="form-label fw-bold">Health Status</label>
+                                <select class="form-select" id="health-status">
+                                    <option value="Healthy">Healthy</option>
+                                    <option value="Sick">Sick</option>
+                                    <option value="Under Treatment">Under Treatment</option>
+                                    <option value="Quarantined">Quarantined</option>
+                                </select>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-success" id="submit-btn">Save Livestock</button>
+                                <button type="button" class="btn btn-secondary" id="cancel-edit" style="display: none;">Cancel Edit</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table for Displaying Livestock -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <span>Current Records</span>
+                        <button class="btn btn-sm btn-outline-light" onclick="location.reload()">Refresh Data</button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Species</th>
+                                        <th>Breed</th>
+                                        <th>Age</th>
+                                        <th>Weight</th>
+                                        <th>Status</th>
+                                        <th class="table-actions text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="livestock-table-body">
+                                    <!-- Data will be loaded here via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // 1. Breed Database
+        const breedsData = {
+            "Cattle": [
+                "Ankole", "Nguni", "Afrikaner", "Bonsmara", "Angus", "Brahman", 
+                "Charolais", "Draughtmaster", "Hereford", "Holstein", "Jersey", 
+                "Limousin", "Simmental", "Sussex", "Wagyu"
+            ],
+            "Sheep": [
+                "Dorper", "Damara", "Merino", "Suffolk", "Dohne Merino", 
+                "Blackhead Persian", "South African Mutton Merino", "Afrino",
+                "Hampshire Down", "Katahdin", "Texel"
+            ]
+        };
+
+        const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('livestock-form');
+            const formTitle = document.getElementById('form-title');
+            const tableBody = document.getElementById('livestock-table-body');
+            const cancelBtn = document.getElementById('cancel-edit');
+            const speciesSelect = document.getElementById('species');
+            const breedSelect = document.getElementById('breed');
+            const submitBtn = document.getElementById('submit-btn');
+
+            // --- Function: Update Breed Dropdown ---
+            const updateBreedOptions = (species, selectedBreed = "") => {
+                breedSelect.innerHTML = '<option value="" selected disabled>Select Breed...</option>';
+                
+                if (species && breedsData[species]) {
+                    breedSelect.disabled = false;
+                    // Sort breeds alphabetically
+                    breedsData[species].sort().forEach(breed => {
+                        const option = document.createElement('option');
+                        option.value = breed;
+                        option.textContent = breed;
+                        if (breed === selectedBreed) option.selected = true;
+                        breedSelect.appendChild(option);
+                    });
+                } else {
+                    breedSelect.disabled = true;
+                    breedSelect.innerHTML = '<option value="" selected disabled>Select species first...</option>';
+                }
+            };
+
+            // Event: Change breeds when species changes
+            speciesSelect.addEventListener('change', (e) => {
+                updateBreedOptions(e.target.value);
+            });
+
+            // --- Function: Fetch Data from Java API ---
+            const fetchLivestock = async () => {
+                try {
+                    const response = await fetch(API_URL);
+                    if (!response.ok) throw new Error('Could not connect to the Java server.');
+                    
+                    const data = await response.json();
+                    tableBody.innerHTML = '';
+
+                    if (data.length === 0) {
+                        tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No livestock records found. Add one on the left!</td></tr>`;
+                    } else {
+                        data.forEach(item => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${item.id}</td>
+                                <td><span class="badge bg-secondary">${item.species}</span></td>
+                                <td>${item.breed}</td>
+                                <td>${item.age} yrs</td>
+                                <td>${item.weight} kg</td>
+                                <td><span class="badge ${getStatusClass(item.health_status)}">${item.health_status}</span></td>
+                                <td class="table-actions text-center">
+                                    <button class="btn btn-sm btn-warning edit-btn" data-id="${item.id}">Edit</button>
+                                    <button class="btn btn-sm btn-danger delete-btn" data-id="${item.id}">Delete</button>
+                                </td>
+                            `;
+                            row.dataset.raw = JSON.stringify(item);
+                            tableBody.appendChild(row);
+                        });
+                    }
+                } catch (err) {
+                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Error: ${err.message}</td></tr>`;
+                }
+            };
+
+            const getStatusClass = (status) => {
+                switch(status) {
+                    case 'Healthy': return 'bg-success';
+                    case 'Sick': return 'bg-danger';
+                    case 'Under Treatment': return 'bg-warning text-dark';
+                    default: return 'bg-info';
+                }
+            };
+
+            // --- Function: Handle Form Submission (Save/Update) ---
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('livestock-id').value;
+                
+                const payload = {
+                    species: speciesSelect.value,
+                    breed: breedSelect.value,
+                    age: parseInt(document.getElementById('age').value),
+                    weight: parseFloat(document.getElementById('weight').value),
+                    health_status: document.getElementById('health-status').value
+                };
+
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `${API_URL}/${id}` : API_URL;
+
+                try {
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        resetForm();
+                        fetchLivestock();
+                    } else {
+                        alert("Failed to save record.");
+                    }
+                } catch (err) {
+                    alert("Error communicating with server.");
+                }
+            });
+
+            // --- Function: Handle Edit/Delete Clicks ---
+            tableBody.addEventListener('click', async (e) => {
+                const id = e.target.dataset.id;
+                
+                if (e.target.classList.contains('edit-btn')) {
+                    const row = e.target.closest('tr');
+                    const data = JSON.parse(row.dataset.raw);
+
+                    formTitle.textContent = "Edit Record #" + id;
+                    formTitle.classList.replace('bg-primary', 'bg-warning');
+                    formTitle.classList.add('text-dark');
+                    
+                    document.getElementById('livestock-id').value = data.id;
+                    speciesSelect.value = data.species;
+                    
+                    // Manually trigger dropdown update before setting breed
+                    updateBreedOptions(data.species, data.breed);
+                    
+                    document.getElementById('age').value = data.age;
+                    document.getElementById('weight').value = data.weight;
+                    document.getElementById('health-status').value = data.health_status;
+                    
+                    cancelBtn.style.display = 'block';
+                    submitBtn.textContent = "Update Record";
+                    window.scrollTo(0, 0);
+                }
+
+                if (e.target.classList.contains('delete-btn')) {
+                    if (confirm(`Are you sure you want to delete record #${id}?`)) {
+                        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                        fetchLivestock();
+                    }
+                }
+            });
+
+            const resetForm = () => {
+                form.reset();
+                formTitle.textContent = "Add New Livestock";
+                formTitle.className = "card-header bg-primary text-white";
+                document.getElementById('livestock-id').value = '';
+                breedSelect.disabled = true;
+                breedSelect.innerHTML = '<option value="" selected disabled>Select species first...</option>';
+                cancelBtn.style.display = 'none';
+                submitBtn.textContent = "Save Livestock";
+            };
+
+            cancelBtn.addEventListener('click', resetForm);
+
+            // Initial Load
+            fetchLivestock();
+        });
+    </script>
+</body>
+</html>
