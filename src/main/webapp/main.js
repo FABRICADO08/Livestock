@@ -192,6 +192,7 @@
 */
 // 1. Databases
 // 1. DATA COLLECTIONS
+// 1. DATA COLLECTIONS
 const breedsData = {
     "Cattle": ["Ankole", "Nguni", "Afrikaner", "Bonsmara", "Angus", "Brahman", "Charolais", "Draughtmaster", "Hereford", "Holstein", "Jersey", "Limousin", "Simmental", "Sussex", "Wagyu"],
     "Sheep": ["Dorper", "Damara", "Merino", "Suffolk", "Dohne Merino", "Blackhead Persian", "South African Mutton Merino", "Afrino", "Hampshire Down", "Katahdin", "Texel"]
@@ -222,48 +223,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const classSelect = document.getElementById('classification');
     const submitBtn = document.getElementById('submit-btn');
 
-    // --- SECTION 1: NAVIGATION & LOGIN ---
-    
-    // View Switcher (SPA)
+    // --- NAVIGATION ---
     window.showSection = (sectionId) => {
         const sections = ['section-visuals', 'section-add', 'section-view'];
         sections.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
-        document.getElementById(`section-${sectionId}`).style.display = 'block';
-        
-        // Update Navbar Active State
-        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-        if (event && event.target && event.target.classList.contains('nav-link')) {
-            event.target.classList.add('active');
-        }
+        const target = document.getElementById(`section-${sectionId}`);
+        if(target) target.style.display = 'block';
     };
 
-    // Google Sign-In Handler
-    window.handleSignIn = (response) => {
-        const base64Url = response.credential.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const user = JSON.parse(window.atob(base64));
-
-        localStorage.setItem('google_user_id', user.sub);
-        
-        // Transition UI
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('main-dashboard').style.display = 'block';
-        document.getElementById('welcome-msg').textContent = `Welcome back, ${user.given_name}!`;
-        
-        fetchLivestock(); // Load table
-    };
-
-    // Logout
-    window.logout = () => {
-        localStorage.clear();
-        location.reload();
-    };
-
-    // --- SECTION 2: DYNAMIC DROPDOWNS ---
-
+    // --- DYNAMIC DROPDOWNS ---
     const updateBreedOptions = (species, selectedBreed = "") => {
         breedSelect.innerHTML = '<option value="" selected disabled>Select Breed...</option>';
         if (species && breedsData[species]) {
@@ -274,14 +245,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (breed === selectedBreed) opt.selected = true;
                 breedSelect.appendChild(opt);
             });
-        } else {
-            breedSelect.disabled = true;
         }
     };
 
     const updateClassificationOptions = (species, gender, selectedClass = "") => {
         classSelect.innerHTML = '<option value="" selected disabled>Select Type...</option>';
-        if (species && gender && classificationData[species][gender]) {
+        if (species && gender && classificationData[species] && classificationData[species][gender]) {
             classSelect.disabled = false;
             classificationData[species][gender].forEach(type => {
                 const opt = document.createElement('option');
@@ -291,11 +260,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } else {
             classSelect.disabled = true;
-            classSelect.innerHTML = '<option value="" selected disabled>Pick Gender First</option>';
         }
     };
 
-    // Listeners for Smart Filtering
     speciesSelect.addEventListener('change', () => {
         updateBreedOptions(speciesSelect.value);
         updateClassificationOptions(speciesSelect.value, genderSelect.value);
@@ -305,8 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateClassificationOptions(speciesSelect.value, genderSelect.value);
     });
 
-    // --- SECTION 3: API & CRUD ---
-
+    // --- FETCH DATA ---
     const fetchLivestock = async () => {
         try {
             const response = await fetch(API_URL);
@@ -319,31 +285,70 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${item.id}</td>
                     <td><span class="badge bg-secondary">${item.species}</span></td>
                     <td>${item.breed}</td>
-                    <td>${item.age}</td>
-                    <td>${item.weight}kg</td>
-                    <td><span class="badge ${item.health_status === 'Healthy' ? 'bg-success' : 'bg-danger'}">${item.health_status}</span></td>
-                    <td>${item.gender}</td>
-                    <td>${item.classification}</td>
-                    <td>${item.user}</td>
-                    <td>${item.date}</td>
+                    <td>${item.age || 0} yrs</td>
+                    <td>${item.weight || 0} kg</td>
+                    <td><span class="badge ${item.health_status === 'Healthy' ? 'bg-success' : 'bg-warning'}">${item.health_status}</span></td>
+                    <td>${item.gender || 'N/A'}</td>
+                    <td>${item.classification || 'N/A'}</td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-warning edit-btn" data-id="${item.id}">Edit</button>
-                        <button class="btn btn-sm btn-danger delete-btn" data-id="${item.id}">Delete</button>
+                        <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="${item.id}">Edit</button>
+                        <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="${item.id}">Delete</button>
                     </td>
                 `;
-                row.dataset.raw = JSON.stringify(item);
+                // Store the data on the row so the Edit button can find it
+                row.setAttribute('data-item', JSON.stringify(item));
                 tableBody.appendChild(row);
             });
         } catch (err) {
-            console.error("Fetch error:", err);
+            console.error("Load failed", err);
         }
     };
 
+    // --- THE EDIT CLICK FIX ---
+    tableBody.addEventListener('click', (e) => {
+        // Use closest() to ensure we catch the button even if user clicks the text
+        const editBtn = e.target.closest('.edit-btn');
+        const deleteBtn = e.target.closest('.delete-btn');
+
+        if (editBtn) {
+            const row = editBtn.closest('tr');
+            const data = JSON.parse(row.getAttribute('data-item'));
+
+            // 1. Switch to the Add section first so the elements are visible
+            showSection('add');
+
+            // 2. Fill the form
+            formTitle.textContent = "Edit Animal #" + data.id;
+            document.getElementById('livestock-id').value = data.id;
+            speciesSelect.value = data.species;
+            genderSelect.value = data.gender || "";
+            
+            // 3. Manually trigger the dropdown updates
+            updateBreedOptions(data.species, data.breed);
+            updateClassificationOptions(data.species, data.gender, data.classification);
+            
+            document.getElementById('age').value = data.age || 0;
+            document.getElementById('weight').value = data.weight || 0;
+            document.getElementById('health-status').value = data.health_status;
+            
+            submitBtn.textContent = "Update Changes";
+            cancelBtn.style.display = 'block';
+            window.scrollTo(0, 0);
+        }
+
+        if (deleteBtn) {
+            const id = deleteBtn.getAttribute('data-id');
+            if(confirm("Delete this record?")) {
+                fetch(`${API_URL}/${id}`, { method: 'DELETE' }).then(() => fetchLivestock());
+            }
+        }
+    });
+
+    // --- SAVE / UPDATE ---
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = document.getElementById('livestock-id').value;
         const payload = {
-            user_id: localStorage.getItem('google_user_id'),
             species: speciesSelect.value,
             breed: breedSelect.value,
             gender: genderSelect.value,
@@ -363,57 +368,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (res.ok) {
-            resetForm();
+            form.reset();
             fetchLivestock();
             showSection('view');
+        } else {
+            alert("Error: Save failed.");
         }
     });
 
-    // --- SECTION 4: EDIT & DELETE ---
-
-    tableBody.addEventListener('click', async (e) => {
-        const id = e.target.dataset.id;
-        if (e.target.classList.contains('edit-btn')) {
-            const data = JSON.parse(e.target.closest('tr').dataset.raw);
-            showSection('add');
-            
-            formTitle.textContent = "Edit Record #" + id;
-            document.getElementById('livestock-id').value = data.id;
-            
-            // Set values and refresh dropdown logic
-            speciesSelect.value = data.species;
-            genderSelect.value = data.gender;
-            updateBreedOptions(data.species, data.breed);
-            updateClassificationOptions(data.species, data.gender, data.classification);
-            
-            document.getElementById('age').value = data.age;
-            document.getElementById('weight').value = data.weight;
-            document.getElementById('health-status').value = data.health_status;
-            
-            cancelBtn.style.display = 'block';
-            submitBtn.textContent = "Update Record";
-        }
-
-        if (e.target.classList.contains('delete-btn')) {
-            if (confirm("Delete this animal?")) {
-                await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-                fetchLivestock();
-            }
-        }
-    });
-
-    const resetForm = () => {
-        form.reset();
-        formTitle.textContent = "Add New Livestock";
-        document.getElementById('livestock-id').value = '';
-        breedSelect.disabled = true;
-        classSelect.disabled = true;
-        cancelBtn.style.display = 'none';
-        submitBtn.textContent = "Save Livestock";
-    };
-
-    cancelBtn.addEventListener('click', () => {
-        resetForm();
-        showSection('view');
-    });
+    fetchLivestock(); // Initial load
 });
