@@ -319,11 +319,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${item.id}</td>
                     <td><span class="badge bg-secondary">${item.species}</span></td>
                     <td>${item.breed}</td>
-                    <td>${item.gender}</td>
-                    <td>${item.classification}</td>
                     <td>${item.age}</td>
                     <td>${item.weight}kg</td>
                     <td><span class="badge ${item.health_status === 'Healthy' ? 'bg-success' : 'bg-danger'}">${item.health_status}</span></td>
+                    <td>${item.gender}</td>
+                    <td>${item.classification}</td>
+                    <td>${item.user}</td>
+                    <td>${item.date}</td>
                     <td class="text-center">
                         <button class="btn btn-sm btn-warning edit-btn" data-id="${item.id}">Edit</button>
                         <button class="btn btn-sm btn-danger delete-btn" data-id="${item.id}">Delete</button>
