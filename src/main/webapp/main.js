@@ -30,6 +30,9 @@ const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
         const breedSelect = document.getElementById('breed');
         const classSelect = document.getElementById('classification');
         const healthSelect = document.getElementById('health-status');
+        const genderSelect = document.getElementById('gender');
+        const classificationSelect = document.getElementById('classification');
+
         const submitBtn = document.getElementById('submit-btn');
 
         // --- Function: Update Breed Dropdown ---
