@@ -18,4 +18,4 @@ ADD https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.44.v202109
 EXPOSE 8080
 
 # Start the application
-CMD ["java", "-jar", "jetty-runner.jar", "--port", "8080", "livestock.war"]
+CMD ["java", "-jar", "jetty-runner.jar", "--port", "10000", "livestock.war"]
