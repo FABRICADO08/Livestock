@@ -30,6 +30,9 @@ public class LivestockServlet extends HttpServlet {
                         rs.getInt("age"),
                         rs.getDouble("weight"),
                         rs.getString("health_status"),
+                        rs.getString("gender"),
+                        rs.getString("classification"),
+                        rs.getString("user"),
                         rs.getTimestamp("registered_at")));
             }
         } catch (SQLException e) {
@@ -43,7 +46,7 @@ public class LivestockServlet extends HttpServlet {
         BufferedReader reader = request.getReader();
         Animal animal = gson.fromJson(reader, Animal.class);
 
-        String sql = "INSERT INTO livestock (species, breed, age, weight, health_status) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO livestock (species, breed, age, weight, health_status, gender, classification, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = Connect.getConnection();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -52,6 +55,9 @@ public class LivestockServlet extends HttpServlet {
             pstmt.setInt(3, animal.age);
             pstmt.setDouble(4, animal.weight);
             pstmt.setString(5, animal.health_status);
+            pstmt.setString(6, animal.gender);
+            pstmt.setString(7, animal.classification);
+            pstmt.setString(8, "User"); // Default user, change as needed
             pstmt.executeUpdate();
             response.setStatus(HttpServletResponse.SC_CREATED);
         } catch (SQLException e) {
@@ -60,7 +66,36 @@ public class LivestockServlet extends HttpServlet {
         }
     }
 
-    // 3. DELETE: Remove a record
+    // 3. PUT: Update an existing record
+    protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String pathInfo = request.getPathInfo(); // Expecting /id
+        if (pathInfo != null && pathInfo.length() > 1) {
+            int id = Integer.parseInt(pathInfo.substring(1));
+            BufferedReader reader = request.getReader();
+            Animal animal = gson.fromJson(reader, Animal.class);
+
+            String sql = "UPDATE livestock SET species = ?, breed = ?, age = ?, weight = ?, health_status = ?, gender = ?, classification = ? WHERE id = ?";
+            try (Connection conn = Connect.getConnection();
+                    PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+                pstmt.setString(1, animal.species);
+                pstmt.setString(2, animal.breed);
+                pstmt.setInt(3, animal.age);
+                pstmt.setDouble(4, animal.weight);
+                pstmt.setString(5, animal.health_status);
+                pstmt.setString(6, animal.gender);
+                pstmt.setString(7, animal.classification);
+                pstmt.setInt(8, id);
+                pstmt.executeUpdate();
+                response.setStatus(HttpServletResponse.SC_OK);
+            } catch (SQLException e) {
+                e.printStackTrace();
+                response.sendError(500);
+            }
+        }
+    }
+
+    // 4. DELETE: Remove a record
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String pathInfo = request.getPathInfo(); // Expecting /id
         if (pathInfo != null && pathInfo.length() > 1) {
@@ -86,19 +121,22 @@ public class LivestockServlet extends HttpServlet {
     // Simple Inner Class to map Data
     private static class Animal {
         int id;
-        String species, breed, health_status;
+        String species, breed, health_status, gender, classification, user;
         int age;
         double weight;
-        Timestamp registration_date;
+        Timestamp date;
 
-        Animal(int id, String s, String b, int a, double w, String h, Timestamp r) {
+        Animal(int id, String s, String b, int a, double w, String h, String g, String c, String u, Timestamp d) {
             this.id = id;
             this.species = s;
             this.breed = b;
             this.age = a;
             this.weight = w;
             this.health_status = h;
-            this.registration_date = r;
+            this.gender = g;
+            this.classification = c;
+            this.user = u;
+            this.date = d;
         }
     }
 }
