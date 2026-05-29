@@ -89,7 +89,7 @@ const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
                 tableBody.innerHTML = '';
 
                 if (data.length === 0) {
-                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No livestock records found. Add one on the left!</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted">No livestock records found. Add one on the left!</td></tr>`;
                 } else {
                     data.forEach(item => {
                         const row = document.createElement('tr');
@@ -100,10 +100,10 @@ const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
                             <td>${item.age} yrs</td>
                             <td>${item.weight} kg</td>
                             <td><span class="badge ${getStatusClass(item.health_status)}">${item.health_status}</span></td>
-                            <td>${item.gender}</td>
-                            <td>${item.classification}</td>
-                            <td>${item.user}</td>
-                            <td>${item.date}</td>
+                            <td>${item.gender || 'N/A'}</td>
+                            <td>${item.classification || 'N/A'}</td>
+                            <td>${item.user || 'N/A'}</td>
+                            <td>${item.date || 'N/A'}</td>
                             <td class="table-actions text-center">
                                 <button class="btn btn-sm btn-warning edit-btn" data-id="${item.id}">Edit</button>
                                 <button class="btn btn-sm btn-danger delete-btn" data-id="${item.id}">Delete</button>
@@ -114,7 +114,7 @@ const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
                     });
                 }
             } catch (err) {
-                tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Error: ${err.message}</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-danger py-4">Error: ${err.message}</td></tr>`;
             }
         };
 
@@ -156,10 +156,10 @@ const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
                     resetForm();
                     fetchLivestock();
                 } else {
-                    alert("Failed to save record.");
+                    alert("Failed to save record. Server returned: " + response.status);
                 }
             } catch (err) {
-                alert("Error communicating with server.");
+                alert("Error communicating with server: " + err.message);
             }
         });
 
