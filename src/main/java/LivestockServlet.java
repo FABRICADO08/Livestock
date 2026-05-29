@@ -33,7 +33,14 @@ public class LivestockServlet extends HttpServlet {
                         rs.getString("gender"),
                         rs.getString("classification"),
                         rs.getString("user"),
-                        rs.getTimestamp("registered_at")));
+                        rs.getTimestamp("registered_at"),
+                        rs.getString("date_of_birth"),
+                        rs.getString("acquisition_date"),
+                        rs.getString("production_type"),
+                        rs.getString("vaccination_status"),
+                        rs.getString("location"),
+                        rs.getString("id_tag"),
+                        rs.getString("notes")));
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -46,7 +53,7 @@ public class LivestockServlet extends HttpServlet {
         BufferedReader reader = request.getReader();
         Animal animal = gson.fromJson(reader, Animal.class);
 
-        String sql = "INSERT INTO livestock (species, breed, age, weight, health_status, gender, classification, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO livestock (species, breed, age, weight, health_status, gender, classification, user, date_of_birth, acquisition_date, production_type, vaccination_status, location, id_tag, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = Connect.getConnection();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -57,7 +64,14 @@ public class LivestockServlet extends HttpServlet {
             pstmt.setString(5, animal.health_status);
             pstmt.setString(6, animal.gender);
             pstmt.setString(7, animal.classification);
-            pstmt.setString(8, "User"); // Default user, change as needed
+            pstmt.setString(8, "User"); // Default user
+            pstmt.setString(9, animal.date_of_birth);
+            pstmt.setString(10, animal.acquisition_date);
+            pstmt.setString(11, animal.production_type);
+            pstmt.setString(12, animal.vaccination_status);
+            pstmt.setString(13, animal.location);
+            pstmt.setString(14, animal.id_tag);
+            pstmt.setString(15, animal.notes);
             pstmt.executeUpdate();
             response.setStatus(HttpServletResponse.SC_CREATED);
         } catch (SQLException e) {
@@ -74,7 +88,7 @@ public class LivestockServlet extends HttpServlet {
             BufferedReader reader = request.getReader();
             Animal animal = gson.fromJson(reader, Animal.class);
 
-            String sql = "UPDATE livestock SET species = ?, breed = ?, age = ?, weight = ?, health_status = ?, gender = ?, classification = ? WHERE id = ?";
+            String sql = "UPDATE livestock SET species = ?, breed = ?, age = ?, weight = ?, health_status = ?, gender = ?, classification = ?, date_of_birth = ?, acquisition_date = ?, production_type = ?, vaccination_status = ?, location = ?, id_tag = ?, notes = ? WHERE id = ?";
             try (Connection conn = Connect.getConnection();
                     PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -85,7 +99,14 @@ public class LivestockServlet extends HttpServlet {
                 pstmt.setString(5, animal.health_status);
                 pstmt.setString(6, animal.gender);
                 pstmt.setString(7, animal.classification);
-                pstmt.setInt(8, id);
+                pstmt.setString(8, animal.date_of_birth);
+                pstmt.setString(9, animal.acquisition_date);
+                pstmt.setString(10, animal.production_type);
+                pstmt.setString(11, animal.vaccination_status);
+                pstmt.setString(12, animal.location);
+                pstmt.setString(13, animal.id_tag);
+                pstmt.setString(14, animal.notes);
+                pstmt.setInt(15, id);
                 pstmt.executeUpdate();
                 response.setStatus(HttpServletResponse.SC_OK);
             } catch (SQLException e) {
@@ -122,11 +143,13 @@ public class LivestockServlet extends HttpServlet {
     private static class Animal {
         int id;
         String species, breed, health_status, gender, classification, user;
+        String date_of_birth, acquisition_date, production_type, vaccination_status, location, id_tag, notes;
         int age;
         double weight;
         Timestamp date;
 
-        Animal(int id, String s, String b, int a, double w, String h, String g, String c, String u, Timestamp d) {
+        Animal(int id, String s, String b, int a, double w, String h, String g, String c, String u, Timestamp d,
+               String dob, String ad, String pt, String vs, String loc, String it, String n) {
             this.id = id;
             this.species = s;
             this.breed = b;
@@ -137,6 +160,13 @@ public class LivestockServlet extends HttpServlet {
             this.classification = c;
             this.user = u;
             this.date = d;
+            this.date_of_birth = dob;
+            this.acquisition_date = ad;
+            this.production_type = pt;
+            this.vaccination_status = vs;
+            this.location = loc;
+            this.id_tag = it;
+            this.notes = n;
         }
     }
 }
