@@ -17,8 +17,6 @@ const classificationData = {
 "Cattle": ["Bull", "Cow", "Steer", "Heifer", "Ox", "Calf"],
 "Sheep": ["Ram", "Ewe", "Wether", "Lamb"]
 };
-code
-Code
 const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -55,9 +53,29 @@ const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
             }
         };
 
-        // Event: Change breeds when species changes
+        // --- Function: Update Classification/Type Dropdown ---
+        const updateClassificationOptions = (species, selectedClassification = "") => {
+            classificationSelect.innerHTML = '<option value="" selected disabled>Select Type...</option>';
+
+            if (species && classificationData[species]) {
+                classificationSelect.disabled = false;
+                classificationData[species].forEach(cls => {
+                    const option = document.createElement('option');
+                    option.value = cls;
+                    option.textContent = cls;
+                    if (cls === selectedClassification) option.selected = true;
+                    classificationSelect.appendChild(option);
+                });
+            } else {
+                classificationSelect.disabled = true;
+                classificationSelect.innerHTML = '<option value="" selected disabled>Select species first...</option>';
+            }
+        };
+
+        // Event: Change breeds and types when species changes
         speciesSelect.addEventListener('change', (e) => {
             updateBreedOptions(e.target.value);
+            updateClassificationOptions(e.target.value);
         });
 
         // --- Function: Fetch Data from Java API ---
@@ -159,12 +177,14 @@ const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
                 document.getElementById('livestock-id').value = data.id;
                 speciesSelect.value = data.species;
                 
-                // Manually trigger dropdown update before setting breed
+                // Manually trigger dropdown update before setting breed and classification
                 updateBreedOptions(data.species, data.breed);
-                
+                updateClassificationOptions(data.species, data.classification);
+
                 document.getElementById('age').value = data.age;
                 document.getElementById('weight').value = data.weight;
                 document.getElementById('health-status').value = data.health_status;
+                document.getElementById('gender').value = data.gender;
                 
                 cancelBtn.style.display = 'block';
                 submitBtn.textContent = "Update Record";
@@ -186,6 +206,8 @@ const API_URL = '/api/livestock'; // Matches your Java Controller endpoint
             document.getElementById('livestock-id').value = '';
             breedSelect.disabled = true;
             breedSelect.innerHTML = '<option value="" selected disabled>Select species first...</option>';
+            classificationSelect.disabled = true;
+            classificationSelect.innerHTML = '<option value="" selected disabled>Select species first...</option>';
             cancelBtn.style.display = 'none';
             submitBtn.textContent = "Save Livestock";
         };
