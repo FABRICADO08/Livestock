@@ -93,10 +93,22 @@ public class Connect {
                     "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")");
 
+            // Core fields added in earlier app versions
             executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS created_by VARCHAR(255)");
             executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)");
             executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
             executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+
+            // Extended fields required by the current dashboard form
+            executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS gender VARCHAR(20)");
+            executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS classification VARCHAR(50)");
+            executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS date_of_birth VARCHAR(10)");
+            executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS acquisition_date VARCHAR(10)");
+            executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS production_type VARCHAR(50)");
+            executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS vaccination_status VARCHAR(50)");
+            executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS location VARCHAR(255)");
+            executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS id_tag VARCHAR(100)");
+            executeQuietly(conn, "ALTER TABLE livestock ADD COLUMN IF NOT EXISTS notes TEXT");
 
             schemaInitialized = true;
             System.out.println("✓ Schema checks completed");

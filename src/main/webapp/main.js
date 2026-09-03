@@ -278,37 +278,37 @@ function updateStatisticsDisplay(stats) {
     if (!statsDiv) return;
 
     statsDiv.innerHTML = `
-        <div class="row text-center">
-            <div class="col-md-3">
-                <div class="card bg-light">
+        <div class="row text-center g-2">
+            <div class="col-12 col-sm-6 col-md-3">
+                <div class="card bg-light h-100">
                     <div class="card-body">
                         <h6 class="card-title">Total Animals</h6>
                         <h3>${stats.total || 0}</h3>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-success text-white">
+            <div class="col-12 col-sm-6 col-md-3">
+                <div class="card bg-success text-white h-100">
                     <div class="card-body">
                         <h6 class="card-title">Healthy</h6>
                         <h3>${stats.healthy || 0}</h3>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-danger text-white">
+            <div class="col-12 col-sm-6 col-md-3">
+                <div class="card bg-danger text-white h-100">
                     <div class="card-body">
                         <h6 class="card-title">Sick/Not Healthy</h6>
                         <h3>${stats.sick || 0}</h3>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-info text-white">
+            <div class="col-12 col-sm-6 col-md-3">
+                <div class="card bg-info text-white h-100">
                     <div class="card-body">
                         <h6 class="card-title">Avg Age/Weight</h6>
                         <p class="mb-0">${stats.avg_age || 0} yrs</p>
-                        <p>${stats.avg_weight || 0} kg</p>
+                        <p class="mb-0">${stats.avg_weight || 0} kg</p>
                     </div>
                 </div>
             </div>
@@ -401,17 +401,17 @@ function displayLivestock(animals) {
         const createdAt = animal.created_at || animal.date;
 
         row.innerHTML = `
-            <td>${animal.id}</td>
-            <td><strong>${animal.species}</strong></td>
-            <td>${animal.breed}</td>
-            <td>${displayAge !== null ? displayAge : (animal.age ?? 'N/A')}</td>
-            <td>${animal.weight} kg</td>
-            <td>${statusBadge}</td>
-            <td>${animal.gender}</td>
-            <td>${animal.classification}</td>
-            <td>${animal.created_by || 'N/A'}</td>
-            <td>${createdAt ? new Date(createdAt).toLocaleDateString() : 'N/A'}</td>
-            <td class="table-actions">
+            <td data-label="ID">${animal.id}</td>
+            <td data-label="Species"><strong>${animal.species}</strong></td>
+            <td data-label="Breed">${animal.breed}</td>
+            <td data-label="Age">${displayAge !== null ? displayAge : (animal.age ?? 'N/A')}</td>
+            <td data-label="Weight">${animal.weight} kg</td>
+            <td data-label="Status">${statusBadge}</td>
+            <td data-label="Gender">${animal.gender}</td>
+            <td data-label="Type">${animal.classification}</td>
+            <td data-label="Created By">${animal.created_by || 'N/A'}</td>
+            <td data-label="Created At">${createdAt ? new Date(createdAt).toLocaleDateString() : 'N/A'}</td>
+            <td class="table-actions" data-label="Actions">
                 <button class="btn btn-sm btn-info action-btn" onclick="viewDetails(${animal.id})" title="View">
                     <i class="bi bi-eye"></i>
                 </button>
