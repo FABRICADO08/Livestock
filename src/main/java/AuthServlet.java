@@ -291,6 +291,19 @@ public class AuthServlet extends HttpServlet {
         }
 
         String role = isAdminEmail ? "ADMIN" : "USER";
+        try {
+            insertNewUser(conn, email, googleId, role);
+        } catch (SQLException e) {
+            // A legacy users table may still carry a NOT NULL / PRIMARY KEY on
+            // google_id (or an unexpected column ordering). Re-run the schema
+            // reconciliation once and retry before giving up on the login.
+            Connect.reconcileSchema(conn);
+            insertNewUser(conn, email, googleId, role);
+        }
+        return role;
+    }
+
+    private void insertNewUser(Connection conn, String email, String googleId, String role) throws SQLException {
         try (PreparedStatement insert = conn.prepareStatement("INSERT INTO users (email, google_id, role, last_login) VALUES (?, ?, ?, ?)") ) {
             insert.setString(1, email);
             insert.setString(2, googleId);
@@ -298,7 +311,6 @@ public class AuthServlet extends HttpServlet {
             insert.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
             insert.executeUpdate();
         }
-        return role;
     }
 
     private boolean isAdminEmail(String email) {
