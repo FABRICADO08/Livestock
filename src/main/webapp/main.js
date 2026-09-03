@@ -146,14 +146,22 @@ function applyAuthState() {
             userAvatar.removeAttribute('src');
         }
         logoutBtn.style.display = 'inline-block';
-        formHint.textContent = `New records will be created by: ${currentUser.email} (${currentUser.role})`;
-        submitBtn.disabled = false;
+        if (formHint) {
+            formHint.textContent = `New records will be created by: ${currentUser.email} (${currentUser.role})`;
+        }
+        if (submitBtn) {
+            submitBtn.disabled = false;
+        }
 
         if (currentUser.role === 'ADMIN') {
-            managementCard.style.display = 'block';
+            if (managementCard) {
+                managementCard.style.display = 'block';
+            }
             loadUsers();
         } else {
-            managementCard.style.display = 'none';
+            if (managementCard) {
+                managementCard.style.display = 'none';
+            }
         }
     } else {
         userEmail.textContent = 'Not signed in';
@@ -162,9 +170,15 @@ function applyAuthState() {
         userAvatar.style.display = 'none';
         userAvatar.removeAttribute('src');
         logoutBtn.style.display = 'none';
-        formHint.textContent = 'Sign in with Google to add records.';
-        submitBtn.disabled = true;
-        managementCard.style.display = 'none';
+        if (formHint) {
+            formHint.textContent = 'Sign in with Google to add records.';
+        }
+        if (submitBtn) {
+            submitBtn.disabled = true;
+        }
+        if (managementCard) {
+            managementCard.style.display = 'none';
+        }
     }
 }
 
