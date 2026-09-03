@@ -83,8 +83,9 @@ public class AuthServlet extends HttpServlet {
                 sendAsJson(response, users);
                 return;
             } catch (SQLException e) {
+                System.err.println("Failed to load users: " + e.getMessage());
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                sendError(response, "Failed to load users: " + e.getMessage());
+                sendError(response, "Failed to load users");
                 return;
             }
         }
@@ -157,8 +158,9 @@ public class AuthServlet extends HttpServlet {
                 sendAsJson(response, auth);
             }
         } catch (Exception e) {
+            System.err.println("Authentication failed: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            sendError(response, "Authentication failed: " + e.getMessage());
+            sendError(response, "Authentication failed");
         }
     }
 
@@ -219,8 +221,9 @@ public class AuthServlet extends HttpServlet {
 
             sendAsJson(response, Map.of("status", "success"));
         } catch (Exception e) {
+            System.err.println("Failed to update user role: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            sendError(response, "Failed to update user role: " + e.getMessage());
+            sendError(response, "Failed to update user role");
         }
     }
 
