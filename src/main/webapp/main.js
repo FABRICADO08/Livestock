@@ -60,8 +60,7 @@ async function initializeAuth() {
             return;
         }
 
-        applyAuthState();
-        waitForGoogleAndRender(0);
+        window.location.href = '/signin.html';
     } catch (error) {
         console.error('Auth initialization error:', error);
         showAlert('Could not initialize authentication', 'danger');
@@ -138,11 +137,7 @@ async function logout() {
 
     currentUser = null;
     cachedAnimals = [];
-    applyAuthState();
-    renderSignInButton();
-    displayLivestock([]);
-    document.getElementById('statistics').innerHTML = '';
-    showAlert('Logged out', 'info');
+    window.location.href = '/signin.html';
 }
 
 function applyAuthState() {
