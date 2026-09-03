@@ -8,6 +8,7 @@
     <display-name>Livestock Manager</display-name>
 
     <welcome-file-list>
+        <welcome-file>signin.html</welcome-file>
         <welcome-file>index.html</welcome-file>
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>

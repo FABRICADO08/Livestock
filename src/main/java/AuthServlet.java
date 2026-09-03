@@ -2,6 +2,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -41,7 +43,7 @@ public class AuthServlet extends HttpServlet {
         }
 
         if ("/config".equals(pathInfo)) {
-            String googleClientId = System.getenv("GOOGLE_CLIENT_ID");
+            String googleClientId = getConfigValue("GOOGLE_CLIENT_ID");
             if (googleClientId == null || googleClientId.isBlank()) {
                 response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
                 sendError(response, "GOOGLE_CLIENT_ID is not configured");
@@ -114,7 +116,7 @@ public class AuthServlet extends HttpServlet {
             return;
         }
 
-        String clientId = System.getenv("GOOGLE_CLIENT_ID");
+        String clientId = getConfigValue("GOOGLE_CLIENT_ID");
         if (clientId == null || clientId.isBlank()) {
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             sendError(response, "GOOGLE_CLIENT_ID is not configured");
@@ -295,7 +297,7 @@ public class AuthServlet extends HttpServlet {
     }
 
     private boolean isAdminEmail(String email) {
-        String adminEmails = System.getenv("ADMIN_EMAILS");
+        String adminEmails = getConfigValue("ADMIN_EMAILS");
         if (adminEmails == null || adminEmails.isBlank() || email == null) {
             return false;
         }
@@ -308,6 +310,26 @@ public class AuthServlet extends HttpServlet {
             }
         }
         return false;
+    }
+
+    private String getConfigValue(String key) {
+        String value = System.getenv(key);
+        if (value != null && !value.isBlank()) {
+            return value;
+        }
+
+        Properties props = new Properties();
+        try (FileInputStream fis = new FileInputStream("local.properties")) {
+            props.load(fis);
+            value = props.getProperty(key);
+            if (value == null) {
+                return null;
+            }
+            value = value.trim();
+            return value.isEmpty() ? null : value;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private boolean isAdmin(HttpSession session) {

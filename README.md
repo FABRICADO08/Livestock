@@ -86,6 +86,8 @@ Optional local fallback file at repository root (`local.properties`):
 DB_URL=jdbc:postgresql://localhost:5432/postgres?currentSchema=public
 DB_USER=postgres
 DB_PASSWORD=your_password
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+ADMIN_EMAILS=admin1@gmail.com,admin2@gmail.com
 ```
 
 ## Google OAuth Setup
@@ -112,4 +114,3 @@ Open `http://localhost:8080`, sign in with Google, then manage records.
 - `GET /api/auth/users` – list users (ADMIN)
 - `PUT /api/auth/users/{email}` – update role (ADMIN)
 - `GET /api/livestock/*` – authenticated livestock APIs
-
