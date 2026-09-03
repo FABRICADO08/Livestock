@@ -1,103 +1,115 @@
 # Livestock Management System (Java Edition)
-A modern, responsive web application for managing livestock records. This system allows farmers and managers to track cattle and sheep, monitor health status, and maintain persistent records using a PostgreSQL database.
 
-🚀 Key Features
-Dynamic Web Dashboard: A single-page interface built with Bootstrap 5.
+A responsive web application for managing livestock records with PostgreSQL persistence, Google OAuth sign-in, and role-based access control.
 
-Smart Selection: Dependent dropdowns that filter breeds based on the selected species (Cattle or Sheep).
+## Key Features
 
-Full CRUD Operations: Create, Read, Update, and Delete livestock records in real-time.
+- Google OAuth 2.0 sign-in
+- Session-based authentication for API calls
+- Role-based permissions:
+  - `ADMIN`: full access, user management, edit/delete any record
+  - `USER`: create/view all, edit/delete own records only
+- Audit trail per record (`created_by`, `updated_by`, `created_at`, `updated_at`)
+- User table with role and login tracking
+- CRUD dashboard with search/filter/statistics
 
-Health Tracking: Visual badges to identify "Healthy" vs "Sick/Quarantined" animals.
+## Technology Stack
 
-Persistent Storage: Integration with PostgreSQL for reliable data management.
+- Java 11
+- Java Servlet API (Jetty via Maven plugin)
+- PostgreSQL
+- HTML5 + Bootstrap 5 + JavaScript
+- Gson
 
-JSON API: A RESTful backend that communicates via JSON.
+## Prerequisites
 
-🛠️ Technology Stack
-Backend: Java 11 / 17
+- JDK 11+
+- Maven
+- PostgreSQL
+- Google Cloud OAuth 2.0 Client ID (Web application)
 
-Framework: Spring Boot (Web & JDBC)
+## Database Setup
 
-Database: PostgreSQL
+Run this SQL on your PostgreSQL database:
 
-Frontend: HTML5, JavaScript (ES6+), Bootstrap 5
-
-JSON Parser: GSON
-
-📋 Prerequisites
-Before running the application, ensure you have:
-
-JDK 11 or 17 installed.
-
-Apache Maven installed.
-
-PostgreSQL installed and running.
-
-pgAdmin 4 (recommended for database management).
-
-⚙️ Setup and Installation
-1. Database Setup
-Open pgAdmin or psql and run the following commands to create the table in the public schema:
-
-SQL
-
-CREATE TABLE public.livestock (
+```sql
+CREATE TABLE IF NOT EXISTS public.livestock (
     id SERIAL PRIMARY KEY,
     species VARCHAR(100) NOT NULL,
     breed VARCHAR(100) NOT NULL,
     age INTEGER,
     weight NUMERIC,
     health_status VARCHAR(50),
+    gender VARCHAR(20),
+    classification VARCHAR(50),
+    date_of_birth DATE,
+    acquisition_date DATE,
+    production_type VARCHAR(50),
+    vaccination_status VARCHAR(50),
+    location VARCHAR(100),
+    id_tag VARCHAR(50),
+    notes TEXT,
     registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-2. Configuration
-Create a local.properties file in the root directory (where pom.xml is located) to store your credentials:
 
-Properties
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS created_by VARCHAR(255);
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255);
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
-DB_PASSWORD=your_postgres_password
-3. Update Connection String
-Ensure your Connect.java points to your local PostgreSQL instance: jdbc:postgresql://localhost:5432/postgres?currentSchema=public
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    role VARCHAR(20) DEFAULT 'USER' CHECK (role IN ('ADMIN', 'USER')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP
+);
+```
 
-🏃 How to Run the Application
-1. Build the Project Use Maven to clean and package the application:
+> Note: the application also auto-creates the `users` table and audit columns on startup if missing.
 
-Bash
+## Environment Variables
 
+Set these environment variables (Render.com or local shell):
+
+```bash
+DB_URL=jdbc:postgresql://<host>:5432/<db>?currentSchema=public
+DB_USER=<database_user>
+DB_PASSWORD=<database_password>
+GOOGLE_CLIENT_ID=<google_oauth_client_id>
+ADMIN_EMAILS=admin1@gmail.com,admin2@gmail.com
+```
+
+Optional local fallback file at repository root (`local.properties`):
+
+```properties
+DB_URL=jdbc:postgresql://localhost:5432/postgres?currentSchema=public
+DB_USER=postgres
+DB_PASSWORD=your_password
+```
+
+## Google OAuth Setup
+
+1. Open Google Cloud Console.
+2. Create OAuth 2.0 credentials for a **Web application**.
+3. Add authorized JavaScript origins (example: `http://localhost:8080`).
+4. Use the generated Client ID as `GOOGLE_CLIENT_ID`.
+
+## Run
+
+```bash
 mvn clean package
-2. Start the Server Run the application using the embedded Jetty/Spring Boot server:
+mvn jetty:run -Djetty.http.port=8080
+```
 
-Bash
+Open `http://localhost:8080`, sign in with Google, then manage records.
 
-npm start
-# OR
-mvn spring-boot:run
-3. Access the Dashboard Open your browser and navigate to:
+## API Endpoints
 
-http://localhost:9090 (or 8080 depending on your server config)
+- `POST /api/auth/google` – authenticate with Google credential token
+- `GET /api/auth/session` – current logged-in user
+- `POST /api/auth/logout` – logout
+- `GET /api/auth/users` – list users (ADMIN)
+- `PUT /api/auth/users/{email}` – update role (ADMIN)
+- `GET /api/livestock/*` – authenticated livestock APIs
 
-📂 Project Structure
-Plaintext
-
-Livestock/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   ├── Connect.java          # Database connection logic
-│   │   │   └── LivestockServlet.java # API Endpoints (GET, POST, DELETE)
-│   │   └── webapp/
-│   │       └── index.html            # Main Dashboard UI
-├── pom.xml                           # Maven dependencies (GSON, PostgreSQL)
-├── local.properties                  # Private database credentials
-└── README.md                         # This file
-🤝 Contributing
-Fork the repository.
-
-Create a new feature branch (git checkout -b feature-name).
-
-Commit changes (git commit -m 'Add feature').
-
-Push to the branch (git push origin feature-name).
-
-Open a Pull Request.
