@@ -1,4 +1,4 @@
-// Livestock Management JavaScript
+// Livestock Management JavaScript - Enhanced Version
 
 // Breed mapping
 const breedsBySpecies = {
@@ -12,9 +12,13 @@ const classificationBySpecies = {
     'Sheep': ['Lamb', 'Ewe', 'Ram', 'Wether', 'Yearling']
 };
 
+let currentPage = 0;
+const pageSize = 50;
+
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     loadLivestock();
+    loadStatistics();
     setupEventListeners();
 });
 
@@ -25,10 +29,85 @@ function setupEventListeners() {
     const breedSelect = document.getElementById('breed');
     const classificationSelect = document.getElementById('classification');
     const cancelEditBtn = document.getElementById('cancel-edit');
+    const searchInput = document.getElementById('search-input');
 
     form.addEventListener('submit', handleFormSubmit);
     speciesSelect.addEventListener('change', updateBreedAndClassification);
     cancelEditBtn.addEventListener('click', resetForm);
+    
+    // Add search functionality
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(function() {
+            currentPage = 0;
+            loadLivestock();
+        }, 500));
+    }
+}
+
+// Debounce function for search
+function debounce(func, delay) {
+    let timeoutId;
+    return function() {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(func, delay);
+    };
+}
+
+// Load statistics
+async function loadStatistics() {
+    try {
+        const response = await fetch('/api/livestock/stats');
+        if (!response.ok) return;
+        
+        const stats = await response.json();
+        updateStatisticsDisplay(stats);
+    } catch (error) {
+        console.error('Error loading statistics:', error);
+    }
+}
+
+// Update statistics display
+function updateStatisticsDisplay(stats) {
+    const statsDiv = document.getElementById('statistics');
+    if (!statsDiv) return;
+    
+    statsDiv.innerHTML = `
+        <div class="row text-center">
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title">Total Animals</h6>
+                        <h3>${stats.total || 0}</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Healthy</h6>
+                        <h3>${stats.healthy || 0}</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Sick/Not Healthy</h6>
+                        <h3>${stats.sick || 0}</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">Avg Age/Weight</h6>
+                        <p class="mb-0">${stats.avg_age || 0} yrs</p>
+                        <p>${stats.avg_weight || 0} kg</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 // Update breed dropdown when species changes
@@ -62,10 +141,17 @@ function updateBreedAndClassification() {
     }
 }
 
-// Load all livestock records
+// Load all livestock records with search
 async function loadLivestock() {
     try {
-        const response = await fetch('/api/livestock/');
+        const searchTerm = document.getElementById('search-input')?.value || '';
+        const filter = document.getElementById('health-filter')?.value || '';
+        
+        let url = `/api/livestock/?page=${currentPage}&limit=${pageSize}`;
+        if (searchTerm) url += `&q=${encodeURIComponent(searchTerm)}`;
+        if (filter) url += `&filter=${filter}`;
+        
+        const response = await fetch(url);
         
         if (!response.ok) {
             const error = await response.json();
@@ -110,13 +196,13 @@ function displayLivestock(animals) {
             <td>${animal.user}</td>
             <td>${new Date(animal.date).toLocaleDateString()}</td>
             <td class="table-actions">
-                <button class="btn btn-sm btn-info action-btn" onclick="viewDetails(${animal.id})">
+                <button class="btn btn-sm btn-info action-btn" onclick="viewDetails(${animal.id})" title="View">
                     <i class="bi bi-eye"></i>
                 </button>
-                <button class="btn btn-sm btn-warning action-btn" onclick="editAnimal(${animal.id})">
+                <button class="btn btn-sm btn-warning action-btn" onclick="editAnimal(${animal.id})" title="Edit">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-danger action-btn" onclick="deleteAnimal(${animal.id})">
+                <button class="btn btn-sm btn-danger action-btn" onclick="deleteAnimal(${animal.id})" title="Delete">
                     <i class="bi bi-trash"></i>
                 </button>
             </td>
@@ -167,6 +253,7 @@ async function handleFormSubmit(e) {
         showAlert(id ? 'Record updated successfully!' : 'Record saved successfully!', 'success');
         resetForm();
         loadLivestock();
+        loadStatistics();
     } catch (error) {
         console.error('Error:', error);
         showAlert('Error saving record: ' + error.message, 'danger');
@@ -233,6 +320,7 @@ async function deleteAnimal(id) {
 
         showAlert('Record deleted successfully!', 'success');
         loadLivestock();
+        loadStatistics();
     } catch (error) {
         console.error('Error:', error);
         showAlert('Error deleting record: ' + error.message, 'danger');
