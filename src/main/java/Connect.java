@@ -58,10 +58,16 @@ public class Connect {
                 stmt.execute("CREATE TABLE IF NOT EXISTS users (" +
                         "id SERIAL PRIMARY KEY, " +
                         "email VARCHAR(255) UNIQUE NOT NULL, " +
+                        "google_id VARCHAR(255), " +
                         "role VARCHAR(20) DEFAULT 'USER' CHECK (role IN ('ADMIN', 'USER')), " +
                         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
                         "last_login TIMESTAMP" +
                         ")");
+
+                // Reconcile schemas of users tables created by older app versions
+                stmt.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255)");
+                stmt.execute("ALTER TABLE users ALTER COLUMN google_id DROP NOT NULL");
+                stmt.execute("ALTER TABLE users ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP");
 
                 stmt.execute("CREATE TABLE IF NOT EXISTS app_config (" +
                         "key VARCHAR(100) PRIMARY KEY, " +
