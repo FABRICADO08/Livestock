@@ -2,6 +2,9 @@ import com.google.gson.Gson;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.time.LocalDate;
+import java.time.Period;
+import java.time.format.DateTimeParseException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -165,6 +168,12 @@ public class LivestockServlet extends HttpServlet {
 
             BufferedReader reader = request.getReader();
             Animal animal = gson.fromJson(reader, Animal.class);
+            Integer computedAge = calculateAgeFromDateOfBirth(animal.date_of_birth);
+            if (computedAge == null) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                sendError(response, "Date of birth is required in YYYY-MM-DD format and cannot be in the future");
+                return;
+            }
 
             String sql = "INSERT INTO livestock (species, breed, age, weight, health_status, gender, classification, date_of_birth, acquisition_date, production_type, vaccination_status, location, id_tag, notes, created_by, updated_by, created_at, updated_at) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
@@ -172,7 +181,7 @@ public class LivestockServlet extends HttpServlet {
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 pstmt.setString(1, animal.species);
                 pstmt.setString(2, animal.breed);
-                pstmt.setInt(3, animal.age);
+                pstmt.setInt(3, computedAge);
                 pstmt.setDouble(4, animal.weight);
                 pstmt.setString(5, animal.health_status);
                 pstmt.setString(6, animal.gender);
@@ -243,13 +252,19 @@ public class LivestockServlet extends HttpServlet {
 
             BufferedReader reader = request.getReader();
             Animal animal = gson.fromJson(reader, Animal.class);
+            Integer computedAge = calculateAgeFromDateOfBirth(animal.date_of_birth);
+            if (computedAge == null) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                sendError(response, "Date of birth is required in YYYY-MM-DD format and cannot be in the future");
+                return;
+            }
 
             String sql = "UPDATE livestock SET species = ?, breed = ?, age = ?, weight = ?, health_status = ?, gender = ?, classification = ?, date_of_birth = ?, acquisition_date = ?, production_type = ?, vaccination_status = ?, location = ?, id_tag = ?, notes = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
 
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 pstmt.setString(1, animal.species);
                 pstmt.setString(2, animal.breed);
-                pstmt.setInt(3, animal.age);
+                pstmt.setInt(3, computedAge);
                 pstmt.setDouble(4, animal.weight);
                 pstmt.setString(5, animal.health_status);
                 pstmt.setString(6, animal.gender);
@@ -349,6 +364,22 @@ public class LivestockServlet extends HttpServlet {
         Ownership ownership = new Ownership();
         ownership.exists = false;
         return ownership;
+    }
+
+    private Integer calculateAgeFromDateOfBirth(String dateOfBirth) {
+        if (dateOfBirth == null || dateOfBirth.isBlank()) {
+            return null;
+        }
+        try {
+            LocalDate dob = LocalDate.parse(dateOfBirth.trim());
+            LocalDate today = LocalDate.now();
+            if (dob.isAfter(today)) {
+                return null;
+            }
+            return Period.between(dob, today).getYears();
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     private String getCurrentUserEmail(HttpServletRequest request) {
