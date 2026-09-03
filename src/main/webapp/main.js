@@ -278,37 +278,37 @@ function updateStatisticsDisplay(stats) {
     if (!statsDiv) return;
 
     statsDiv.innerHTML = `
-        <div class="row text-center">
-            <div class="col-md-3">
-                <div class="card bg-light">
+        <div class="row text-center g-2">
+            <div class="col-12 col-sm-6 col-md-3">
+                <div class="card bg-light h-100">
                     <div class="card-body">
                         <h6 class="card-title">Total Animals</h6>
                         <h3>${stats.total || 0}</h3>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-success text-white">
+            <div class="col-12 col-sm-6 col-md-3">
+                <div class="card bg-success text-white h-100">
                     <div class="card-body">
                         <h6 class="card-title">Healthy</h6>
                         <h3>${stats.healthy || 0}</h3>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-danger text-white">
+            <div class="col-12 col-sm-6 col-md-3">
+                <div class="card bg-danger text-white h-100">
                     <div class="card-body">
                         <h6 class="card-title">Sick/Not Healthy</h6>
                         <h3>${stats.sick || 0}</h3>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-info text-white">
+            <div class="col-12 col-sm-6 col-md-3">
+                <div class="card bg-info text-white h-100">
                     <div class="card-body">
                         <h6 class="card-title">Avg Age/Weight</h6>
                         <p class="mb-0">${stats.avg_age || 0} yrs</p>
-                        <p>${stats.avg_weight || 0} kg</p>
+                        <p class="mb-0">${stats.avg_weight || 0} kg</p>
                     </div>
                 </div>
             </div>

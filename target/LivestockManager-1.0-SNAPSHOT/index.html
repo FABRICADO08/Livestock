@@ -34,25 +34,26 @@
             .container-xl { margin-top: 1rem !important; padding-inline: 0.75rem; }
             .display-5 { font-size: clamp(1.55rem, 7vw, 2rem); }
             .search-section .row > [class*='col-']:not(:last-child) { margin-bottom: 0.75rem; }
-            .table-responsive { overflow: visible; }
-            .table-responsive table,
-            .table-responsive thead,
-            .table-responsive tbody,
-            .table-responsive th,
-            .table-responsive td,
-            .table-responsive tr {
+            .table-responsive-md { overflow: visible; }
+            .mobile-card-table,
+            .mobile-card-table thead,
+            .mobile-card-table tbody,
+            .mobile-card-table th,
+            .mobile-card-table td,
+            .mobile-card-table tr {
                 display: block;
                 width: 100%;
             }
-            .table-responsive thead { display: none; }
-            .table-responsive tbody tr {
+            .mobile-card-table thead { display: none; }
+            .mobile-card-table tbody tr {
                 background: #fff;
                 border: 1px solid #dee2e6;
                 border-radius: 0.75rem;
                 margin-bottom: 0.75rem;
                 padding: 0.5rem 0.75rem;
+                box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.05);
             }
-            .table-responsive tbody td {
+            .mobile-card-table tbody td {
                 border: 0;
                 border-bottom: 1px dashed #e9ecef;
                 padding: 0.45rem 0;
@@ -61,32 +62,34 @@
                 align-items: flex-start;
                 gap: 0.75rem;
             }
-            .table-responsive tbody td:last-child { border-bottom: 0; }
-            .table-responsive tbody td::before {
+            .mobile-card-table tbody td:last-child { border-bottom: 0; }
+            .mobile-card-table tbody td::before {
                 content: attr(data-label);
                 font-weight: 600;
                 color: #495057;
                 flex-shrink: 0;
+                text-align: left;
             }
-            .table-responsive tbody td.actions-cell,
-            .table-responsive tbody td.table-actions {
+            .mobile-card-table tbody td.actions-cell,
+            .mobile-card-table tbody td.table-actions {
                 display: block;
                 width: 100%;
                 padding-top: 0.65rem;
+                justify-content: flex-start;
             }
-            .table-responsive tbody td.actions-cell::before,
-            .table-responsive tbody td.table-actions::before {
+            .mobile-card-table tbody td.actions-cell::before,
+            .mobile-card-table tbody td.table-actions::before {
                 content: '';
                 display: block;
                 font-weight: 600;
                 margin-bottom: 0.5rem;
             }
-            .table-responsive tbody td.actions-cell .btn,
-            .table-responsive tbody td.table-actions .btn {
+            .mobile-card-table tbody td.actions-cell .btn,
+            .mobile-card-table tbody td.table-actions .btn {
                 margin-right: 0.35rem;
                 margin-bottom: 0.35rem;
             }
-            .table-responsive tbody td[colspan] {
+            .mobile-card-table tbody td[colspan] {
                 display: block;
                 text-align: center;
             }
@@ -103,12 +106,12 @@
         </header>
 
         <div class="card mb-3">
-            <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>
+            <div class="card-body d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+                <div class="d-flex align-items-center flex-wrap gap-2 mb-2 mb-sm-0">
                     <strong>Signed in as:</strong>
-                    <img id="current-user-avatar" class="user-avatar ms-2" alt="Profile">
-                    <span id="current-user-email" class="ms-1 text-primary">Not signed in</span>
-                    <span id="current-user-role" class="badge bg-secondary ms-2">GUEST</span>
+            <img id="current-user-avatar" class="user-avatar" alt="Profile">
+            <span id="current-user-email" class="text-primary">Not signed in</span>
+            <span id="current-user-role" class="badge bg-secondary">GUEST</span>
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <div id="google-signin-button"></div>
@@ -268,11 +271,11 @@
                     </div>
 
                     <div class="card-body search-section">
-                        <div class="row">
-                            <div class="col-md-8">
+                        <div class="row g-2">
+                            <div class="col-12 col-md-8">
                                 <input type="text" id="search-input" class="form-control" placeholder="Search by species, breed, or ID tag...">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-12 col-md-4">
                                 <select id="health-filter" class="form-select" onchange="document.getElementById('search-input').dispatchEvent(new Event('input'))">
                                     <option value="">All Status</option>
                                     <option value="healthy">Healthy Only</option>
@@ -283,8 +286,8 @@
                     </div>
 
                     <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
+                        <div class="table-responsive-md">
+                            <table class="table table-hover mb-0 mobile-card-table" id="livestock-table">
                                 <thead class="table-light">
                                     <tr>
                                         <th>ID</th>
@@ -310,7 +313,7 @@
     </div>
 
     <div class="modal fade" id="viewModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-fullscreen-sm-down">
             <div class="modal-content">
                 <div class="modal-header bg-info text-white">
                     <h5 class="modal-title">Livestock Details</h5>
