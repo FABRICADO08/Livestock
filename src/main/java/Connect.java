@@ -63,6 +63,12 @@ public class Connect {
                         "last_login TIMESTAMP" +
                         ")");
 
+                stmt.execute("CREATE TABLE IF NOT EXISTS app_config (" +
+                        "key VARCHAR(100) PRIMARY KEY, " +
+                        "value TEXT NOT NULL, " +
+                        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                        ")");
+
                 stmt.execute("ALTER TABLE livestock ADD COLUMN IF NOT EXISTS created_by VARCHAR(255)");
                 stmt.execute("ALTER TABLE livestock ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)");
                 stmt.execute("ALTER TABLE livestock ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
