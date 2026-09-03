@@ -1,15 +1,5 @@
 // Livestock Management JavaScript - Enhanced Version
 
-const breedsBySpecies = {
-    'Cattle': ['Holstein', 'Angus', 'Brahman', 'Jersey', 'Simmental', 'Hereford'],
-    'Sheep': ['Merino', 'Dorper', 'Romney', 'Suffolk', 'Corriedale', 'Texel']
-};
-
-const classificationBySpecies = {
-    'Cattle': ['Calf', 'Heifer', 'Cow', 'Bull', 'Steer'],
-    'Sheep': ['Lamb', 'Ewe', 'Ram', 'Wether', 'Yearling']
-};
-
 let currentPage = 0;
 const pageSize = 50;
 let currentUser = null;
@@ -19,23 +9,14 @@ let googleClientId = null;
 document.addEventListener('DOMContentLoaded', async function() {
     setupEventListeners();
     await initializeAuth();
+    checkSaveSuccess();
 });
 
 function setupEventListeners() {
-    const form = document.getElementById('livestock-form');
-    const speciesSelect = document.getElementById('species');
-    const cancelEditBtn = document.getElementById('cancel-edit');
     const searchInput = document.getElementById('search-input');
     const logoutBtn = document.getElementById('logout-btn');
-    const dobInput = document.getElementById('date-of-birth');
 
-    form.addEventListener('submit', handleFormSubmit);
-    speciesSelect.addEventListener('change', updateBreedAndClassification);
-    cancelEditBtn.addEventListener('click', resetForm);
     logoutBtn.addEventListener('click', logout);
-    if (dobInput) {
-        dobInput.addEventListener('change', () => syncAgeWithDob(false));
-    }
 
     if (searchInput) {
         searchInput.addEventListener('input', debounce(function() {
@@ -316,36 +297,6 @@ function updateStatisticsDisplay(stats) {
     `;
 }
 
-function updateBreedAndClassification() {
-    const species = document.getElementById('species').value;
-    const breedSelect = document.getElementById('breed');
-    const classificationSelect = document.getElementById('classification');
-
-    if (species) {
-        breedSelect.disabled = false;
-        breedSelect.innerHTML = '<option value="" selected disabled>Select Breed...</option>';
-
-        (breedsBySpecies[species] || []).forEach(breed => {
-            const option = document.createElement('option');
-            option.value = breed;
-            option.textContent = breed;
-            breedSelect.appendChild(option);
-        });
-
-        classificationSelect.innerHTML = '';
-        (classificationBySpecies[species] || []).forEach(classification => {
-            const option = document.createElement('option');
-            option.value = classification;
-            option.textContent = classification;
-            classificationSelect.appendChild(option);
-        });
-    } else {
-        breedSelect.disabled = true;
-        breedSelect.innerHTML = '<option value="" selected disabled>Select species first...</option>';
-        classificationSelect.innerHTML = '';
-    }
-}
-
 async function loadLivestock() {
     if (!currentUser) {
         return;
@@ -372,6 +323,16 @@ async function loadLivestock() {
         displayLivestock(animals);
     } catch (error) {
         showAlert('Network error: ' + error.message, 'danger');
+    }
+}
+
+function checkSaveSuccess() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('saved') === '1') {
+        showAlert('Record saved successfully!', 'success');
+        if (window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     }
 }
 
@@ -427,100 +388,15 @@ function displayLivestock(animals) {
     });
 }
 
-async function handleFormSubmit(e) {
-    e.preventDefault();
-
-    if (!currentUser) {
-        showAlert('Please sign in with Google first', 'warning');
-        return;
-    }
-    if (!syncAgeWithDob(true)) {
-        return;
-    }
-
-    const id = document.getElementById('livestock-id').value;
-    const method = id ? 'PUT' : 'POST';
-    const endpoint = id ? `/api/livestock/${id}` : '/api/livestock/';
-
-    const animal = {
-        species: document.getElementById('species').value,
-        breed: document.getElementById('breed').value,
-        age: parseInt(document.getElementById('age').value),
-        weight: parseFloat(document.getElementById('weight').value),
-        health_status: document.getElementById('health-status').value,
-        gender: document.getElementById('gender').value,
-        classification: document.getElementById('classification').value,
-        date_of_birth: document.getElementById('date-of-birth').value,
-        acquisition_date: document.getElementById('acquisition-date').value,
-        production_type: document.getElementById('production-type').value,
-        vaccination_status: document.getElementById('vaccination-status').value,
-        location: document.getElementById('location').value,
-        id_tag: document.getElementById('id-tag').value,
-        notes: document.getElementById('notes').value
-    };
-
-    try {
-        const response = await fetch(endpoint, {
-            method,
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(animal)
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Save failed');
-        }
-
-        showAlert(id ? 'Record updated successfully!' : 'Record saved successfully!', 'success');
-        resetForm();
-        await Promise.all([loadLivestock(), loadStatistics()]);
-    } catch (error) {
-        showAlert('Error saving record: ' + error.message, 'danger');
-    }
-}
-
 async function editAnimal(id) {
-    const animal = cachedAnimals.find(a => a.id === id);
-
-    if (!animal) {
-        showAlert('Animal not found', 'danger');
-        return;
-    }
-
-    if (!canModifyAnimal(animal)) {
-        showAlert('You can only edit your own records', 'warning');
-        return;
-    }
-
-    document.getElementById('livestock-id').value = animal.id;
-    document.getElementById('species').value = animal.species;
-    updateBreedAndClassification();
-
-    document.getElementById('breed').value = animal.breed;
-    document.getElementById('gender').value = animal.gender;
-    document.getElementById('classification').value = animal.classification;
-    document.getElementById('age').value = animal.age;
-    document.getElementById('weight').value = animal.weight;
-    document.getElementById('health-status').value = animal.health_status;
-    document.getElementById('date-of-birth').value = animal.date_of_birth || '';
-    syncAgeWithDob(false);
-    document.getElementById('acquisition-date').value = animal.acquisition_date || '';
-    document.getElementById('production-type').value = animal.production_type || '';
-    document.getElementById('vaccination-status').value = animal.vaccination_status || '';
-    document.getElementById('location').value = animal.location || '';
-    document.getElementById('id-tag').value = animal.id_tag || '';
-    document.getElementById('notes').value = animal.notes || '';
-
-    document.getElementById('form-title').textContent = 'Edit Livestock';
-    document.getElementById('submit-btn').textContent = 'Update Livestock';
-    document.getElementById('cancel-edit').style.display = 'block';
-
-    document.querySelector('.form-card').scrollIntoView({ behavior: 'smooth' });
+    window.location.href = `/add-livestock.html?id=${encodeURIComponent(id)}`;
 }
 
 window.editAnimal = editAnimal;
+
+window.addNewLivestock = function() {
+    window.location.href = '/add-livestock.html';
+};
 
 async function deleteAnimal(id) {
     const animal = cachedAnimals.find(a => a.id === id);
@@ -595,16 +471,6 @@ async function viewDetails(id) {
 }
 
 window.viewDetails = viewDetails;
-
-function resetForm() {
-    document.getElementById('livestock-form').reset();
-    document.getElementById('livestock-id').value = '';
-    document.getElementById('form-title').textContent = 'Add New Livestock';
-    document.getElementById('submit-btn').textContent = 'Save Livestock';
-    document.getElementById('cancel-edit').style.display = 'none';
-    document.getElementById('breed').disabled = true;
-    document.getElementById('age').value = '';
-}
 
 function calculateAgeFromDateOfBirth(dateOfBirth) {
     if (!dateOfBirth) return null;
