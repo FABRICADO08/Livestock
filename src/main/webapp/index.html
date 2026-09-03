@@ -10,22 +10,26 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .container { max-width: 1200px; }
+        .container { max-width: 1400px; }
         .card { border: none; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); }
         .card-header { font-size: 1.25rem; font-weight: bold; }
         .table-actions { white-space: nowrap; width: 180px; }
         .form-card { position: sticky; top: 20px; }
         .badge-health { font-size: 0.85rem; }
         .action-btn { margin: 0 2px; }
+        .search-section { margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
     <div class="container-xl mt-4">
-        <header class="text-center mb-5">
+        <header class="text-center mb-4">
             <h1 class="display-5 fw-bold">Livestock Management Dashboard</h1>
-            <p class="text-muted">Manage your Cattle and Sheep records with ease.</p>
+            <p class="text-muted">Track and manage your livestock records efficiently</p>
         </header>
+
+        <!-- Statistics Dashboard -->
+        <div id="statistics" class="mb-4"></div>
 
         <div class="row">
             <!-- Form for Adding/Editing Livestock -->
@@ -150,10 +154,31 @@
             <!-- Table for Displaying Livestock -->
             <div class="col-lg-8">
                 <div class="card">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                        <span>Current Records</span>
-                        <button class="btn btn-sm btn-outline-light" onclick="location.reload()">Refresh Data</button>
+                    <div class="card-header bg-dark text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Current Records</span>
+                            <button class="btn btn-sm btn-outline-light" onclick="location.reload()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
                     </div>
+                    
+                    <!-- Search and Filters -->
+                    <div class="card-body search-section">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <input type="text" id="search-input" class="form-control" placeholder="Search by species, breed, or ID tag...">
+                            </div>
+                            <div class="col-md-4">
+                                <select id="health-filter" class="form-select" onchange="document.getElementById('search-input').dispatchEvent(new Event('input'))">
+                                    <option value="">All Status</option>
+                                    <option value="healthy">Healthy Only</option>
+                                    <option value="sick">Sick Only</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-hover mb-0">
@@ -199,6 +224,7 @@
     </div>
 
     <!-- JavaScript Logic -->
-        <script src="main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>
