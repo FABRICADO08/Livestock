@@ -3,24 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In - Livestock Management</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Sign In - AgriHerd Pro</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --forest: #0e3d2a;
+            --forest-deep: #07281b;
+            --leaf: #3f8f4f;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            color: #1d2b23;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(7, 40, 27, 0.45) 100%),
+                url('https://images.unsplash.com/photo-1500595046743-cd271d694d30?auto=format&fit=crop&w=1600&q=80') center / cover no-repeat fixed,
+                linear-gradient(160deg, #dcefc9 0%, #a9d18e 55%, #6f9f5a 100%);
+        }
+        .auth-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2.5rem 1rem;
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 560px;
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.65);
+            border-radius: 2rem;
+            box-shadow: 0 24px 60px rgba(7, 40, 27, 0.28);
+            padding: 3rem 2.5rem 2.5rem;
+            text-align: center;
+        }
+        .brand-logo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid var(--forest);
+            background: #fff;
+            box-shadow: 0 10px 24px rgba(7, 40, 27, 0.25);
+            margin-bottom: 1.25rem;
+        }
+        .brand-name {
+            font-size: 2.75rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--forest);
+            margin-bottom: 0.25rem;
+        }
+        .brand-tagline {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c6e49;
+            margin-bottom: 0;
+        }
+        .brand-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 1.25rem auto 1.5rem;
+            max-width: 300px;
+        }
+        .brand-divider::before,
+        .brand-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(44, 110, 73, 0.55));
+        }
+        .brand-divider::after {
+            background: linear-gradient(90deg, rgba(44, 110, 73, 0.55), transparent);
+        }
+        .brand-divider i { color: var(--leaf); font-size: 1.1rem; }
+        .welcome-title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #233027;
+            margin-bottom: 0.75rem;
+        }
+        .welcome-copy {
+            color: #4a5b50;
+            font-size: 1.05rem;
+            margin-bottom: 2rem;
+        }
+        .google-slot {
+            display: flex;
+            justify-content: center;
+            min-height: 56px;
+        }
+        #google-signin-button {
+            width: 100%;
+            max-width: 340px;
+            display: flex;
+            justify-content: center;
+        }
+        .secure-note {
+            margin-top: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            color: #33463b;
+            font-size: 1rem;
+            line-height: 1.35;
+            text-align: left;
+        }
+        .secure-note i {
+            color: #2e7d5b;
+            font-size: 1.6rem;
+        }
+        .feature-strip {
+            background: linear-gradient(180deg, var(--forest) 0%, var(--forest-deep) 100%);
+            border-radius: 1.75rem 1.75rem 0 0;
+            padding: 1.5rem 1.5rem 0.75rem;
+            color: #fff;
+        }
+        .feature-item { padding: 0.75rem 0.5rem; }
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+            flex-shrink: 0;
+        }
+        .feature-title { font-weight: 700; font-size: 1.05rem; }
+        .feature-desc {
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        .feature-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.18);
+            margin-top: 0.75rem;
+            padding: 1rem 0;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 1rem;
+        }
+        @media (max-width: 576px) {
+            .auth-card { padding: 2rem 1.25rem 1.75rem; border-radius: 1.5rem; }
+            .brand-name { font-size: 2.1rem; }
+            .brand-logo { width: 96px; height: 96px; }
+        }
+    </style>
 </head>
-<body class="bg-light">
-    <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-6">
-                <div class="card shadow-sm">
-                    <div class="card-body p-4 text-center">
-                        <h1 class="h3 mb-3">Livestock Management</h1>
-                        <p class="text-muted mb-4">Sign in with Google to continue to your dashboard.</p>
-                        <div id="signin-alert"></div>
-                        <div id="google-signin-button" class="d-flex justify-content-center"></div>
-                    </div>
+<body>
+    <main class="auth-main">
+        <section class="auth-card" aria-label="Sign in">
+            <img class="brand-logo"
+                 src="https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&w=240&h=240&q=80"
+                 alt="AgriHerd Pro logo">
+            <h1 class="brand-name">AgriHerd Pro</h1>
+            <p class="brand-tagline">Livestock Management System</p>
+
+            <div class="brand-divider"><i class="bi bi-leaf-fill" aria-hidden="true"></i></div>
+
+            <h2 class="welcome-title">Welcome Back!</h2>
+            <p class="welcome-copy">Sign in to manage your herd, health logs,<br>inventory, and more.</p>
+
+            <div id="signin-alert"></div>
+
+            <div class="google-slot">
+                <div id="google-signin-button"></div>
+            </div>
+
+            <div class="secure-note">
+                <i class="bi bi-shield-lock-fill" aria-hidden="true"></i>
+                <span>Secure &amp; protected by<br>Google Authentication</span>
+            </div>
+        </section>
+    </main>
+
+    <footer class="feature-strip">
+        <div class="container">
+            <div class="row text-center">
+                <div class="col-6 col-md-3 feature-item">
+                    <div class="feature-icon mx-auto"><i class="bi bi-github" aria-hidden="true"></i></div>
+                    <div class="feature-title">Herd Management</div>
+                    <div class="feature-desc">Track &amp; manage your livestock</div>
+                </div>
+                <div class="col-6 col-md-3 feature-item">
+                    <div class="feature-icon mx-auto"><i class="bi bi-heart-pulse-fill" aria-hidden="true"></i></div>
+                    <div class="feature-title">Health Records</div>
+                    <div class="feature-desc">Monitor health &amp; vaccination</div>
+                </div>
+                <div class="col-6 col-md-3 feature-item">
+                    <div class="feature-icon mx-auto"><i class="bi bi-basket2-fill" aria-hidden="true"></i></div>
+                    <div class="feature-title">Inventory</div>
+                    <div class="feature-desc">Manage feed &amp; supplies</div>
+                </div>
+                <div class="col-6 col-md-3 feature-item">
+                    <div class="feature-icon mx-auto"><i class="bi bi-bar-chart-fill" aria-hidden="true"></i></div>
+                    <div class="feature-title">Analytics</div>
+                    <div class="feature-desc">Insights for better decision making</div>
                 </div>
             </div>
+            <div class="feature-footer text-center">
+                <i class="bi bi-lock-fill me-2" aria-hidden="true"></i>Your data is safe with Google
+            </div>
         </div>
-    </div>
+    </footer>
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="signin.js"></script>

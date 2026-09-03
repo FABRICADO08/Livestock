@@ -59,7 +59,9 @@ function renderSignInButton() {
     google.accounts.id.renderButton(target, {
         theme: 'outline',
         size: 'large',
-        text: 'signin_with'
+        text: 'signin_with',
+        shape: 'pill',
+        width: 340
     });
 }
 
