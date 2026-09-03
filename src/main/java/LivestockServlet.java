@@ -77,7 +77,7 @@ public class LivestockServlet extends HttpServlet {
         
         // Add search filter
         if (search != null && !search.trim().isEmpty()) {
-            sql.append(" AND (species ILIKE ? OR breed ILIKE ? OR id_tag ILIKE ?)");
+            sql.append(" AND (species ILIKE ? OR breed ILIKE ?)");
         }
         
         // Add status filter
@@ -107,7 +107,6 @@ public class LivestockServlet extends HttpServlet {
                 String searchPattern = "%" + search + "%";
                 pstmt.setString(paramIndex++, searchPattern);
                 pstmt.setString(paramIndex++, searchPattern);
-                pstmt.setString(paramIndex++, searchPattern);
                 System.out.println("Search parameters set: " + searchPattern);
             }
             pstmt.setInt(paramIndex++, limit);
@@ -124,10 +123,9 @@ public class LivestockServlet extends HttpServlet {
                             rs.getInt("age"),
                             rs.getDouble("weight"),
                             rs.getString("health_status"),
-                            rs.getString("gender"),
-                            rs.getString("classification"),
-                            rs.getString("\"user\""),
-                            rs.getTimestamp("registered_at"),
+                            rs.getString("gender") != null ? rs.getString("gender") : "N/A",
+                            rs.getString("classification") != null ? rs.getString("classification") : "N/A",
+                            rs.getTimestamp("registration_date"),
                             rs.getString("date_of_birth"),
                             rs.getString("acquisition_date"),
                             rs.getString("production_type"),
@@ -190,8 +188,9 @@ public class LivestockServlet extends HttpServlet {
             
             System.out.println("POST: Saving animal - " + animal.species);
 
-            String sql = "INSERT INTO livestock (species, breed, age, weight, health_status, gender, classification, \"user\", date_of_birth, acquisition_date, production_type, vaccination_status, location, id_tag, notes) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            // Match the actual database schema
+            String sql = "INSERT INTO livestock (species, breed, age, weight, health_status, gender, classification, date_of_birth, acquisition_date, production_type, vaccination_status, location, id_tag, notes) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                 pstmt.setString(1, animal.species);
@@ -201,14 +200,13 @@ public class LivestockServlet extends HttpServlet {
                 pstmt.setString(5, animal.health_status);
                 pstmt.setString(6, animal.gender);
                 pstmt.setString(7, animal.classification);
-                pstmt.setString(8, "User");
-                pstmt.setString(9, animal.date_of_birth);
-                pstmt.setString(10, animal.acquisition_date);
-                pstmt.setString(11, animal.production_type);
-                pstmt.setString(12, animal.vaccination_status);
-                pstmt.setString(13, animal.location);
-                pstmt.setString(14, animal.id_tag);
-                pstmt.setString(15, animal.notes);
+                pstmt.setString(8, animal.date_of_birth);
+                pstmt.setString(9, animal.acquisition_date);
+                pstmt.setString(10, animal.production_type);
+                pstmt.setString(11, animal.vaccination_status);
+                pstmt.setString(12, animal.location);
+                pstmt.setString(13, animal.id_tag);
+                pstmt.setString(14, animal.notes);
                 
                 int rows = pstmt.executeUpdate();
                 System.out.println("Rows inserted: " + rows);
@@ -390,13 +388,13 @@ public class LivestockServlet extends HttpServlet {
     // Simple Inner Class to map Data
     private static class Animal {
         int id;
-        String species, breed, health_status, gender, classification, user;
+        String species, breed, health_status, gender, classification;
         String date_of_birth, acquisition_date, production_type, vaccination_status, location, id_tag, notes;
         int age;
         double weight;
         Timestamp date;
 
-        Animal(int id, String s, String b, int a, double w, String h, String g, String c, String u, Timestamp d,
+        Animal(int id, String s, String b, int a, double w, String h, String g, String c, Timestamp d,
                String dob, String ad, String pt, String vs, String loc, String it, String n) {
             this.id = id;
             this.species = s;
@@ -406,7 +404,6 @@ public class LivestockServlet extends HttpServlet {
             this.health_status = h;
             this.gender = g;
             this.classification = c;
-            this.user = u;
             this.date = d;
             this.date_of_birth = dob;
             this.acquisition_date = ad;
