@@ -95,7 +95,7 @@ public class LivestockServlet extends HttpServlet {
                 pstmt.executeUpdate();
                 
                 response.setStatus(HttpServletResponse.SC_CREATED);
-                sendAsJson(response, "{\"status\": \"success\", \"message\": \"Record saved successfully\"}");
+                sendSuccess(response, "Record saved successfully");
             }
         } catch (SQLException e) {
             System.err.println("SQL Error in POST: " + e.getMessage());
@@ -157,7 +157,7 @@ public class LivestockServlet extends HttpServlet {
                 pstmt.executeUpdate();
                 
                 response.setStatus(HttpServletResponse.SC_OK);
-                sendAsJson(response, "{\"status\": \"success\", \"message\": \"Record updated successfully\"}");
+                sendSuccess(response, "Record updated successfully");
             }
         } catch (SQLException e) {
             System.err.println("SQL Error in PUT: " + e.getMessage());
@@ -199,7 +199,7 @@ public class LivestockServlet extends HttpServlet {
                 pstmt.executeUpdate();
                 
                 response.setStatus(HttpServletResponse.SC_OK);
-                sendAsJson(response, "{\"status\": \"success\", \"message\": \"Record deleted successfully\"}");
+                sendSuccess(response, "Record deleted successfully");
             }
         } catch (SQLException e) {
             System.err.println("SQL Error in DELETE: " + e.getMessage());
@@ -229,11 +229,27 @@ public class LivestockServlet extends HttpServlet {
         out.flush();
     }
     
+    private void sendSuccess(HttpServletResponse response, String message) throws IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        PrintWriter out = response.getWriter();
+        out.print("{\"status\":\"success\",\"message\":\"" + escapeJson(message) + "\"}");
+        out.flush();
+    }
+    
     private void sendError(HttpServletResponse response, String message) throws IOException {
         response.setContentType("application/json;charset=UTF-8");
         PrintWriter out = response.getWriter();
-        out.print("{\"error\": \"" + message.replace("\"", "\\\"") + "\"}");
+        out.print("{\"error\":\"" + escapeJson(message) + "\"}");
         out.flush();
+    }
+    
+    private String escapeJson(String str) {
+        if (str == null) return "";
+        return str.replace("\\", "\\\\")
+                  .replace("\"", "\\\"")
+                  .replace("\n", "\\n")
+                  .replace("\r", "\\r")
+                  .replace("\t", "\\t");
     }
 
     // Simple Inner Class to map Data
