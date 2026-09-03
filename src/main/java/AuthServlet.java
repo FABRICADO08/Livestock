@@ -148,7 +148,7 @@ public class AuthServlet extends HttpServlet {
                     return;
                 }
 
-                String role = upsertUserAndResolveRole(conn, tokenInfo.email);
+                String role = upsertUserAndResolveRole(conn, tokenInfo.email, tokenInfo.sub);
 
                 HttpSession session = request.getSession(true);
                 session.setAttribute("userEmail", tokenInfo.email);
@@ -247,6 +247,7 @@ public class AuthServlet extends HttpServlet {
         String aud = obj.has("aud") ? obj.get("aud").getAsString() : null;
         String email = obj.has("email") ? obj.get("email").getAsString() : null;
         String verified = obj.has("email_verified") ? obj.get("email_verified").getAsString() : "false";
+        String sub = obj.has("sub") ? obj.get("sub").getAsString() : null;
 
         if (!expectedAudience.equals(aud) || !"true".equalsIgnoreCase(verified)) {
             return null;
@@ -254,10 +255,11 @@ public class AuthServlet extends HttpServlet {
 
         GoogleTokenInfo info = new GoogleTokenInfo();
         info.email = email;
+        info.sub = sub;
         return info;
     }
 
-    private String upsertUserAndResolveRole(Connection conn, String email) throws SQLException {
+    private String upsertUserAndResolveRole(Connection conn, String email, String googleId) throws SQLException {
         boolean isAdminEmail = isAdminEmail(email);
 
         try (PreparedStatement select = conn.prepareStatement("SELECT role FROM users WHERE email = ?")) {
@@ -268,16 +270,18 @@ public class AuthServlet extends HttpServlet {
                     String roleToUse = existingRole == null || existingRole.isBlank() ? "USER" : existingRole.toUpperCase();
                     if (isAdminEmail && !"ADMIN".equals(roleToUse)) {
                         roleToUse = "ADMIN";
-                        try (PreparedStatement updateRole = conn.prepareStatement("UPDATE users SET role = ?, last_login = ? WHERE email = ?")) {
+                        try (PreparedStatement updateRole = conn.prepareStatement("UPDATE users SET role = ?, google_id = COALESCE(?, google_id), last_login = ? WHERE email = ?")) {
                             updateRole.setString(1, roleToUse);
-                            updateRole.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
-                            updateRole.setString(3, email);
+                            updateRole.setString(2, googleId);
+                            updateRole.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+                            updateRole.setString(4, email);
                             updateRole.executeUpdate();
                         }
                     } else {
-                        try (PreparedStatement updateLogin = conn.prepareStatement("UPDATE users SET last_login = ? WHERE email = ?")) {
-                            updateLogin.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
-                            updateLogin.setString(2, email);
+                        try (PreparedStatement updateLogin = conn.prepareStatement("UPDATE users SET google_id = COALESCE(?, google_id), last_login = ? WHERE email = ?")) {
+                            updateLogin.setString(1, googleId);
+                            updateLogin.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+                            updateLogin.setString(3, email);
                             updateLogin.executeUpdate();
                         }
                     }
@@ -287,10 +291,11 @@ public class AuthServlet extends HttpServlet {
         }
 
         String role = isAdminEmail ? "ADMIN" : "USER";
-        try (PreparedStatement insert = conn.prepareStatement("INSERT INTO users (email, role, last_login) VALUES (?, ?, ?)") ) {
+        try (PreparedStatement insert = conn.prepareStatement("INSERT INTO users (email, google_id, role, last_login) VALUES (?, ?, ?, ?)") ) {
             insert.setString(1, email);
-            insert.setString(2, role);
-            insert.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+            insert.setString(2, googleId);
+            insert.setString(3, role);
+            insert.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
             insert.executeUpdate();
         }
         return role;
@@ -417,5 +422,6 @@ public class AuthServlet extends HttpServlet {
 
     private static class GoogleTokenInfo {
         String email;
+        String sub;
     }
 }
