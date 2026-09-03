@@ -206,15 +206,15 @@ async function loadUsers() {
             const row = document.createElement('tr');
             const loginDate = user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
             row.innerHTML = `
-                <td>${user.email}</td>
-                <td>
+                <td data-label="Email">${user.email}</td>
+                <td data-label="Role">
                     <select class="form-select form-select-sm" id="role-${user.id}">
                         <option value="USER" ${user.role === 'USER' ? 'selected' : ''}>USER</option>
                         <option value="ADMIN" ${user.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
                     </select>
                 </td>
-                <td>${loginDate}</td>
-                <td>
+                <td data-label="Last Login">${loginDate}</td>
+                <td data-label="Action" class="actions-cell">
                     <button class="btn btn-sm btn-outline-primary" onclick="updateUserRole('${encodeURIComponent(user.email)}', ${user.id})">Save</button>
                 </td>
             `;
@@ -401,17 +401,17 @@ function displayLivestock(animals) {
         const createdAt = animal.created_at || animal.date;
 
         row.innerHTML = `
-            <td>${animal.id}</td>
-            <td><strong>${animal.species}</strong></td>
-            <td>${animal.breed}</td>
-            <td>${displayAge !== null ? displayAge : (animal.age ?? 'N/A')}</td>
-            <td>${animal.weight} kg</td>
-            <td>${statusBadge}</td>
-            <td>${animal.gender}</td>
-            <td>${animal.classification}</td>
-            <td>${animal.created_by || 'N/A'}</td>
-            <td>${createdAt ? new Date(createdAt).toLocaleDateString() : 'N/A'}</td>
-            <td class="table-actions">
+            <td data-label="ID">${animal.id}</td>
+            <td data-label="Species"><strong>${animal.species}</strong></td>
+            <td data-label="Breed">${animal.breed}</td>
+            <td data-label="Age">${displayAge !== null ? displayAge : (animal.age ?? 'N/A')}</td>
+            <td data-label="Weight">${animal.weight} kg</td>
+            <td data-label="Status">${statusBadge}</td>
+            <td data-label="Gender">${animal.gender}</td>
+            <td data-label="Type">${animal.classification}</td>
+            <td data-label="Created By">${animal.created_by || 'N/A'}</td>
+            <td data-label="Created At">${createdAt ? new Date(createdAt).toLocaleDateString() : 'N/A'}</td>
+            <td data-label="Actions" class="table-actions actions-cell">
                 <button class="btn btn-sm btn-info action-btn" onclick="viewDetails(${animal.id})" title="View">
                     <i class="bi bi-eye"></i>
                 </button>
