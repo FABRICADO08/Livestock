@@ -16,6 +16,14 @@
         .badge-health { font-size: 0.85rem; }
         .action-btn { margin: 0 2px; }
         .search-section { margin-bottom: 20px; }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #dee2e6;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -30,6 +38,7 @@
             <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <strong>Signed in as:</strong>
+                    <img id="current-user-avatar" class="user-avatar ms-2" alt="Profile">
                     <span id="current-user-email" class="ms-1 text-primary">Not signed in</span>
                     <span id="current-user-role" class="badge bg-secondary ms-2">GUEST</span>
                 </div>
@@ -103,7 +112,7 @@
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="age" class="form-label fw-bold">Age (years)</label>
-                                    <input type="number" class="form-control" id="age" min="0" required>
+                                    <input type="number" class="form-control" id="age" min="0" readonly required>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="weight" class="form-label fw-bold">Weight (kg)</label>
@@ -124,7 +133,7 @@
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="date-of-birth" class="form-label fw-bold">Date of Birth</label>
-                                    <input type="date" class="form-control" id="date-of-birth">
+                                    <input type="date" class="form-control" id="date-of-birth" required>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="acquisition-date" class="form-label fw-bold">Acquisition Date</label>

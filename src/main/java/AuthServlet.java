@@ -153,15 +153,19 @@ public class AuthServlet extends HttpServlet {
                 HttpSession session = request.getSession(true);
                 session.setAttribute("userEmail", tokenInfo.email);
                 session.setAttribute("userRole", role);
+                    session.setAttribute("userPicture", tokenInfo.picture);
 
-                Map<String, String> auth = new HashMap<>();
-                auth.put("email", tokenInfo.email);
-                auth.put("role", role);
-                sendAsJson(response, auth);
-            }
+                    Map<String, String> auth = new HashMap<>();
+                    auth.put("email", tokenInfo.email);
+                    auth.put("role", role);
+                    if (tokenInfo.picture != null && !tokenInfo.picture.isBlank()) {
+                        auth.put("picture", tokenInfo.picture);
+                    }
+                    sendAsJson(response, auth);
+                }
         } catch (Exception e) {
-            System.err.println("Authentication failed: " + e.getMessage());
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                System.err.println("Authentication failed: " + e.getMessage());
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             sendError(response, "Authentication failed");
         }
     }
@@ -248,6 +252,7 @@ public class AuthServlet extends HttpServlet {
         String email = obj.has("email") ? obj.get("email").getAsString() : null;
         String verified = obj.has("email_verified") ? obj.get("email_verified").getAsString() : "false";
         String sub = obj.has("sub") ? obj.get("sub").getAsString() : null;
+        String picture = obj.has("picture") ? obj.get("picture").getAsString() : null;
 
         if (!expectedAudience.equals(aud) || !"true".equalsIgnoreCase(verified)) {
             return null;
@@ -256,6 +261,7 @@ public class AuthServlet extends HttpServlet {
         GoogleTokenInfo info = new GoogleTokenInfo();
         info.email = email;
         info.sub = sub;
+        info.picture = picture;
         return info;
     }
 
@@ -267,9 +273,12 @@ public class AuthServlet extends HttpServlet {
             try (ResultSet rs = select.executeQuery()) {
                 if (rs.next()) {
                     String existingRole = rs.getString("role");
-                    String roleToUse = existingRole == null || existingRole.isBlank() ? "USER" : existingRole.toUpperCase();
-                    if (isAdminEmail && !"ADMIN".equals(roleToUse)) {
+                    String roleToUse = normalizeRole(existingRole);
+                    if (isAdminEmail) {
                         roleToUse = "ADMIN";
+                    }
+
+                    if (existingRole == null || !roleToUse.equalsIgnoreCase(existingRole)) {
                         try (PreparedStatement updateRole = conn.prepareStatement("UPDATE users SET role = ?, google_id = COALESCE(?, google_id), last_login = ? WHERE email = ?")) {
                             updateRole.setString(1, roleToUse);
                             updateRole.setString(2, googleId);
@@ -301,6 +310,21 @@ public class AuthServlet extends HttpServlet {
             insertNewUser(conn, email, googleId, role);
         }
         return role;
+    }
+
+    private String normalizeRole(String role) {
+        if (role == null || role.isBlank()) {
+            return "USER";
+        }
+
+        String normalized = role.trim().toUpperCase();
+        if ("ADMIN".equals(normalized) || "ADMINISTRATOR".equals(normalized)) {
+            return "ADMIN";
+        }
+        if ("USER".equals(normalized)) {
+            return "USER";
+        }
+        return "USER";
     }
 
     private void insertNewUser(Connection conn, String email, String googleId, String role) throws SQLException {
@@ -406,13 +430,42 @@ public class AuthServlet extends HttpServlet {
 
         String email = (String) session.getAttribute("userEmail");
         String role = (String) session.getAttribute("userRole");
-        if (email == null || role == null) {
+        if (email == null) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             sendError(response, "Not authenticated");
             return;
         }
 
-        sendAsJson(response, Map.of("email", email, "role", role));
+        role = resolveRoleFromDatabase(email, role);
+        session.setAttribute("userRole", role);
+        String picture = (String) session.getAttribute("userPicture");
+
+        Map<String, String> auth = new HashMap<>();
+        auth.put("email", email);
+        auth.put("role", role);
+        if (picture != null && !picture.isBlank()) {
+            auth.put("picture", picture);
+        }
+        sendAsJson(response, auth);
+    }
+
+    private String resolveRoleFromDatabase(String email, String fallbackRole) {
+        try (Connection conn = Connect.getConnection()) {
+            if (conn == null) {
+                return normalizeRole(fallbackRole);
+            }
+            try (PreparedStatement ps = conn.prepareStatement("SELECT role FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1")) {
+                ps.setString(1, email);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return normalizeRole(rs.getString("role"));
+                    }
+                }
+            }
+        } catch (SQLException ignored) {
+            return normalizeRole(fallbackRole);
+        }
+        return normalizeRole(fallbackRole);
     }
 
     private void sendAsJson(HttpServletResponse response, Object obj) throws IOException {
@@ -435,5 +488,6 @@ public class AuthServlet extends HttpServlet {
     private static class GoogleTokenInfo {
         String email;
         String sub;
+        String picture;
     }
 }

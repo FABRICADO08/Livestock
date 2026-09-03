@@ -27,11 +27,15 @@ function setupEventListeners() {
     const cancelEditBtn = document.getElementById('cancel-edit');
     const searchInput = document.getElementById('search-input');
     const logoutBtn = document.getElementById('logout-btn');
+    const dobInput = document.getElementById('date-of-birth');
 
     form.addEventListener('submit', handleFormSubmit);
     speciesSelect.addEventListener('change', updateBreedAndClassification);
     cancelEditBtn.addEventListener('click', resetForm);
     logoutBtn.addEventListener('click', logout);
+    if (dobInput) {
+        dobInput.addEventListener('change', () => syncAgeWithDob(false));
+    }
 
     if (searchInput) {
         searchInput.addEventListener('input', debounce(function() {
@@ -143,6 +147,7 @@ async function logout() {
 function applyAuthState() {
     const userEmail = document.getElementById('current-user-email');
     const userRole = document.getElementById('current-user-role');
+    const userAvatar = document.getElementById('current-user-avatar');
     const logoutBtn = document.getElementById('logout-btn');
     const formHint = document.getElementById('form-user-hint');
     const submitBtn = document.getElementById('submit-btn');
@@ -152,6 +157,13 @@ function applyAuthState() {
         userEmail.textContent = currentUser.email;
         userRole.textContent = currentUser.role;
         userRole.className = `badge ${currentUser.role === 'ADMIN' ? 'bg-danger' : 'bg-primary'} ms-2`;
+        if (currentUser.picture) {
+            userAvatar.src = currentUser.picture;
+            userAvatar.style.display = 'inline-block';
+        } else {
+            userAvatar.style.display = 'none';
+            userAvatar.removeAttribute('src');
+        }
         logoutBtn.style.display = 'inline-block';
         formHint.textContent = `New records will be created by: ${currentUser.email} (${currentUser.role})`;
         submitBtn.disabled = false;
@@ -166,6 +178,8 @@ function applyAuthState() {
         userEmail.textContent = 'Not signed in';
         userRole.textContent = 'GUEST';
         userRole.className = 'badge bg-secondary ms-2';
+        userAvatar.style.display = 'none';
+        userAvatar.removeAttribute('src');
         logoutBtn.style.display = 'none';
         formHint.textContent = 'Sign in with Google to add records.';
         submitBtn.disabled = true;
@@ -381,6 +395,7 @@ function displayLivestock(animals) {
         const statusBadge = animal.health_status === 'Healthy'
             ? '<span class="badge bg-success">Healthy</span>'
             : '<span class="badge bg-danger">Not Healthy</span>';
+        const displayAge = calculateAgeFromDateOfBirth(animal.date_of_birth);
 
         const canModify = canModifyAnimal(animal);
         const createdAt = animal.created_at || animal.date;
@@ -389,7 +404,7 @@ function displayLivestock(animals) {
             <td>${animal.id}</td>
             <td><strong>${animal.species}</strong></td>
             <td>${animal.breed}</td>
-            <td>${animal.age}</td>
+            <td>${displayAge !== null ? displayAge : (animal.age ?? 'N/A')}</td>
             <td>${animal.weight} kg</td>
             <td>${statusBadge}</td>
             <td>${animal.gender}</td>
@@ -417,6 +432,9 @@ async function handleFormSubmit(e) {
 
     if (!currentUser) {
         showAlert('Please sign in with Google first', 'warning');
+        return;
+    }
+    if (!syncAgeWithDob(true)) {
         return;
     }
 
@@ -487,6 +505,7 @@ async function editAnimal(id) {
     document.getElementById('weight').value = animal.weight;
     document.getElementById('health-status').value = animal.health_status;
     document.getElementById('date-of-birth').value = animal.date_of_birth || '';
+    syncAgeWithDob(false);
     document.getElementById('acquisition-date').value = animal.acquisition_date || '';
     document.getElementById('production-type').value = animal.production_type || '';
     document.getElementById('vaccination-status').value = animal.vaccination_status || '';
@@ -551,7 +570,7 @@ async function viewDetails(id) {
                 <p><strong>Breed:</strong> ${animal.breed}</p>
                 <p><strong>Gender:</strong> ${animal.gender}</p>
                 <p><strong>Classification:</strong> ${animal.classification}</p>
-                <p><strong>Age:</strong> ${animal.age} years</p>
+                <p><strong>Age:</strong> ${calculateAgeFromDateOfBirth(animal.date_of_birth) ?? animal.age} years</p>
                 <p><strong>Weight:</strong> ${animal.weight} kg</p>
             </div>
             <div class="col-md-6">
@@ -584,6 +603,41 @@ function resetForm() {
     document.getElementById('submit-btn').textContent = 'Save Livestock';
     document.getElementById('cancel-edit').style.display = 'none';
     document.getElementById('breed').disabled = true;
+    document.getElementById('age').value = '';
+}
+
+function calculateAgeFromDateOfBirth(dateOfBirth) {
+    if (!dateOfBirth) return null;
+    const dob = new Date(dateOfBirth);
+    if (Number.isNaN(dob.getTime())) return null;
+
+    const today = new Date();
+    if (dob > today) return null;
+
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--;
+    }
+    return age < 0 ? null : age;
+}
+
+function syncAgeWithDob(showAlertOnInvalid) {
+    const dobInput = document.getElementById('date-of-birth');
+    const ageInput = document.getElementById('age');
+    if (!dobInput || !ageInput) return false;
+
+    const age = calculateAgeFromDateOfBirth(dobInput.value);
+    if (age === null) {
+        ageInput.value = '';
+        if (showAlertOnInvalid) {
+            showAlert('Please provide a valid date of birth (not in the future)', 'warning');
+        }
+        return false;
+    }
+
+    ageInput.value = age;
+    return true;
 }
 
 function showAlert(message, type) {
