@@ -1,6 +1,10 @@
-PredictProduction.class
+AuthServlet$GoogleTokenInfo.class
+LivestockServlet$Ownership.class
 Production.class
-LivestockServlet.class
+AuthFilter.class
 LivestockProject.class
 Connect.class
+AuthServlet.class
+PredictProduction.class
+LivestockServlet.class
 LivestockServlet$Animal.class
