@@ -326,10 +326,50 @@ public class AuthServlet extends HttpServlet {
                 return null;
             }
             value = value.trim();
-            return value.isEmpty() ? null : value;
+            if (!value.isEmpty()) {
+                return value;
+            }
         } catch (Exception e) {
+            // Ignore and fall back to database-backed config
+        }
+
+        return getConfigValueFromDatabase(key);
+    }
+
+    private String getConfigValueFromDatabase(String key) {
+        String[] queries = new String[] {
+                "SELECT value FROM app_config WHERE key = ?",
+                "SELECT config_value FROM app_config WHERE config_key = ?",
+                "SELECT value FROM settings WHERE key = ?",
+                "SELECT config_value FROM settings WHERE config_key = ?"
+        };
+
+        try (Connection conn = Connect.getConnection()) {
+            if (conn == null) {
+                return null;
+            }
+
+            for (String query : queries) {
+                try (PreparedStatement statement = conn.prepareStatement(query)) {
+                    statement.setString(1, key);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        if (!rs.next()) {
+                            continue;
+                        }
+                        String value = rs.getString(1);
+                        if (value != null && !value.trim().isEmpty()) {
+                            return value.trim();
+                        }
+                    }
+                } catch (SQLException ignored) {
+                    // Try the next query/table naming variant
+                }
+            }
+        } catch (SQLException ignored) {
             return null;
         }
+
+        return null;
     }
 
     private boolean isAdmin(HttpSession session) {

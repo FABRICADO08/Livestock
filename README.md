@@ -64,6 +64,12 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS app_config (
+    key VARCHAR(100) PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 > Note: the application also auto-creates the `users` table and audit columns on startup if missing.
@@ -88,6 +94,18 @@ DB_USER=postgres
 DB_PASSWORD=your_password
 GOOGLE_CLIENT_ID=your_google_oauth_client_id
 ADMIN_EMAILS=admin1@gmail.com,admin2@gmail.com
+```
+
+If you keep auth settings in Neon/PostgreSQL instead of environment variables, add them to `app_config`:
+
+```sql
+INSERT INTO app_config (key, value)
+VALUES
+  ('GOOGLE_CLIENT_ID', '<google_oauth_client_id>'),
+  ('ADMIN_EMAILS', 'admin1@gmail.com,admin2@gmail.com')
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  updated_at = CURRENT_TIMESTAMP;
 ```
 
 ## Google OAuth Setup
