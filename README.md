@@ -75,6 +75,15 @@ CREATE TABLE IF NOT EXISTS app_config (
 
 > Note: the application also auto-creates the `users` table and audit columns on startup if missing.
 
+### Fixing a legacy `users` table
+
+Databases created by very old versions of this app may have `google_id` as (part of) the primary key or with a `NOT NULL` constraint. The app now drops those legacy constraints automatically at startup. If you prefer to fix it manually, run:
+
+```sql
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_pkey;
+ALTER TABLE users ALTER COLUMN google_id DROP NOT NULL;
+```
+
 ## Environment Variables
 
 Set these environment variables (Render.com or local shell):
