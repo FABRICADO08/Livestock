@@ -206,15 +206,15 @@ async function loadUsers() {
             const row = document.createElement('tr');
             const loginDate = user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
             row.innerHTML = `
-                <td>${user.email}</td>
-                <td>
+                <td data-label="Email">${user.email}</td>
+                <td data-label="Role">
                     <select class="form-select form-select-sm" id="role-${user.id}">
                         <option value="USER" ${user.role === 'USER' ? 'selected' : ''}>USER</option>
                         <option value="ADMIN" ${user.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
                     </select>
                 </td>
-                <td>${loginDate}</td>
-                <td>
+                <td data-label="Last Login">${loginDate}</td>
+                <td data-label="Action" class="actions-cell">
                     <button class="btn btn-sm btn-outline-primary" onclick="updateUserRole('${encodeURIComponent(user.email)}', ${user.id})">Save</button>
                 </td>
             `;
@@ -411,7 +411,7 @@ function displayLivestock(animals) {
             <td data-label="Type">${animal.classification}</td>
             <td data-label="Created By">${animal.created_by || 'N/A'}</td>
             <td data-label="Created At">${createdAt ? new Date(createdAt).toLocaleDateString() : 'N/A'}</td>
-            <td class="table-actions" data-label="Actions">
+            <td data-label="Actions" class="table-actions actions-cell">
                 <button class="btn btn-sm btn-info action-btn" onclick="viewDetails(${animal.id})" title="View">
                     <i class="bi bi-eye"></i>
                 </button>

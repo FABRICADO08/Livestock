@@ -12,10 +12,12 @@
         .card { border: none; box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15); }
         .card-header { font-size: 1.25rem; font-weight: bold; }
         .table-actions { white-space: nowrap; width: 180px; }
+        .actions-cell { white-space: nowrap; }
         .form-card { position: sticky; top: 20px; }
         .badge-health { font-size: 0.85rem; }
         .action-btn { margin: 0 2px; }
         .search-section { margin-bottom: 20px; }
+        #current-user-email { word-break: break-word; }
         .user-avatar {
             width: 40px;
             height: 40px;
@@ -24,9 +26,15 @@
             border: 2px solid #dee2e6;
             display: none;
         }
-
-        /* Mobile card layout for livestock table */
+        @media (max-width: 991.98px) {
+            .form-card { position: static; top: auto; }
+            .card-header { font-size: 1.1rem; }
+        }
         @media (max-width: 767.98px) {
+            .container-xl { margin-top: 1rem !important; padding-inline: 0.75rem; }
+            .display-5 { font-size: clamp(1.55rem, 7vw, 2rem); }
+            .search-section .row > [class*='col-']:not(:last-child) { margin-bottom: 0.75rem; }
+            .table-responsive-md { overflow: visible; }
             .mobile-card-table,
             .mobile-card-table thead,
             .mobile-card-table tbody,
@@ -34,46 +42,58 @@
             .mobile-card-table td,
             .mobile-card-table tr {
                 display: block;
+                width: 100%;
             }
-            .mobile-card-table thead tr {
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
-            }
+            .mobile-card-table thead { display: none; }
             .mobile-card-table tbody tr {
                 background: #fff;
                 border: 1px solid #dee2e6;
-                border-radius: 0.5rem;
+                border-radius: 0.75rem;
                 margin-bottom: 0.75rem;
-                padding: 0.75rem;
-                box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.05);
+                padding: 0.5rem 0.75rem;
+                box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.05);
             }
-            .mobile-card-table td {
-                border: none;
-                border-bottom: 1px solid #f1f1f1;
-                padding: 0.5rem 0;
+            .mobile-card-table tbody td {
+                border: 0;
+                border-bottom: 1px dashed #e9ecef;
+                padding: 0.45rem 0;
                 display: flex;
                 justify-content: space-between;
-                align-items: center;
-                text-align: right;
+                align-items: flex-start;
+                gap: 0.75rem;
             }
-            .mobile-card-table td:last-child {
-                border-bottom: none;
-            }
-            .mobile-card-table td::before {
+            .mobile-card-table tbody td:last-child { border-bottom: 0; }
+            .mobile-card-table tbody td::before {
                 content: attr(data-label);
-                font-weight: 700;
-                text-align: left;
-                padding-right: 0.75rem;
+                font-weight: 600;
                 color: #495057;
+                flex-shrink: 0;
+                text-align: left;
             }
-            .mobile-card-table .table-actions::before {
-                content: none;
-            }
-            .mobile-card-table .table-actions {
+            .mobile-card-table tbody td.actions-cell,
+            .mobile-card-table tbody td.table-actions {
+                display: block;
+                width: 100%;
+                padding-top: 0.65rem;
                 justify-content: flex-start;
-                padding-top: 0.75rem;
             }
+            .mobile-card-table tbody td.actions-cell::before,
+            .mobile-card-table tbody td.table-actions::before {
+                content: '';
+                display: block;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+            }
+            .mobile-card-table tbody td.actions-cell .btn,
+            .mobile-card-table tbody td.table-actions .btn {
+                margin-right: 0.35rem;
+                margin-bottom: 0.35rem;
+            }
+            .mobile-card-table tbody td[colspan] {
+                display: block;
+                text-align: center;
+            }
+            .table-actions { width: auto; white-space: normal; }
         }
     </style>
 </head>
