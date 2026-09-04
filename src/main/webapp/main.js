@@ -185,7 +185,7 @@ function switchView(view) {
     document.querySelectorAll('.nav-link-item').forEach(item => {
         item.classList.toggle('active', item.dataset.view === view);
     });
-    document.querySelectorAll('main .main-content > section').forEach(section => {
+    document.querySelectorAll('main.main-content > section').forEach(section => {
         section.style.display = section.id === 'view-' + view ? 'block' : 'none';
     });
 
@@ -195,7 +195,13 @@ function switchView(view) {
 
     if (view === 'users') loadUsers();
     if (view === 'marketplace' && cachedMarketplace.length === 0) loadMarketplace();
-    if (view === 'animals' && cachedAnimals.length === 0) loadLivestock();
+    if (view === 'animals') {
+        // Render whatever is cached immediately, then refresh from the server so
+        // the list is never left blank (the initial dashboard load skips the
+        // animals table because it runs while currentView is still 'dashboard').
+        displayLivestock(currentUser.role === 'ADMIN' ? cachedAnimals : cachedAnimals.filter(isOwnAnimal));
+        loadLivestock();
+    }
     if (view === 'sales') loadLivestock().then(renderSales);
     if (view === 'health') loadLivestock().then(renderHealth);
     if (view === 'reports') loadLivestock().then(renderReports);
