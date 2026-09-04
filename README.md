@@ -109,6 +109,7 @@ Render builds the Docker image from `DockerFile` (multi-stage Maven build, then 
 - `GET /api/auth/users` – list users (ADMIN)
 - `PUT /api/auth/users/{email}` – update role to ADMIN, USER or BUYER (ADMIN)
 - `GET /api/livestock/` – list livestock (supports `q`, `filter`, `sort`, `page`, `limit`)
+- `GET /api/livestock/{id}` – fetch a single record (any signed-in user)
 - `GET /api/livestock/marketplace` – livestock listed for sale (any signed-in user)
 - `POST /api/livestock/` – create a record (ADMIN/USER; `id_tag` must be unique)
 - `PUT /api/livestock/{id}` – update a record (owner or ADMIN; `id_tag` must stay unique)

@@ -123,6 +123,14 @@ public class LivestockController {
                 .collect(Collectors.toList());
     }
 
+    @GetMapping("/{id}")
+    public Map<String, Object> getById(@PathVariable("id") String id, HttpSession session) {
+        auth.requireEmail(session);
+        Livestock animal = livestockRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Record not found"));
+        return toJson(animal);
+    }
+
     @GetMapping("/stats")
     public Map<String, Object> stats(HttpSession session) {
         auth.requireEmail(session);

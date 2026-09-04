@@ -12,7 +12,7 @@ async function initializeSignIn() {
         ]);
 
         if (sessionResponse.ok) {
-            window.location.href = '/index.html';
+            window.location.href = '/landing.html';
             return;
         }
 

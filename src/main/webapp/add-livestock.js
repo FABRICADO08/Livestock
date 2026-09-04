@@ -111,16 +111,15 @@ async function loadAnimalForEdit() {
     if (!id) return;
 
     try {
-        const response = await fetch(`/api/livestock/?page=0&limit=50`);
-        if (!response.ok) {
-            throw new Error('Could not load record');
-        }
-        const animals = await response.json();
-        const animal = animals.find(a => String(a.id) === String(id));
-        if (!animal) {
+        const response = await fetch(`/api/livestock/${encodeURIComponent(id)}`);
+        if (response.status === 404) {
             showAlert('Record not found', 'danger');
             return;
         }
+        if (!response.ok) {
+            throw new Error('Could not load record');
+        }
+        const animal = await response.json();
 
         if (!canModifyAnimal(animal)) {
             showAlert('You can only edit your own records', 'warning');

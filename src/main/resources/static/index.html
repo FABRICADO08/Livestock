@@ -300,31 +300,252 @@
                 </div>
             </section>
 
-            <!-- ===================== PLACEHOLDER VIEWS ===================== -->
+            <!-- ===================== SALES VIEW ===================== -->
             <section id="view-sales" style="display:none">
-                <div class="panel-card"><div class="panel-body">
-                    <div class="placeholder-panel"><i class="bi bi-cart3"></i>Sales tracking is coming soon.</div>
-                </div></div>
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-lg-3">
+                        <div class="stat-card">
+                            <div class="stat-head">
+                                <span class="stat-icon green"><i class="bi bi-tag-fill"></i></span>
+                                <div>
+                                    <div class="stat-title">Listed for Sale</div>
+                                    <div class="stat-value" id="sales-total">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-sub">Animals currently on the market</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <div class="stat-card">
+                            <div class="stat-head">
+                                <span class="stat-icon blue"><i class="bi bi-cash-stack"></i></span>
+                                <div>
+                                    <div class="stat-title">Total Asking Value</div>
+                                    <div class="stat-value" id="sales-value">R 0</div>
+                                </div>
+                            </div>
+                            <div class="stat-sub">Combined asking prices</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <span>Livestock Listed for Sale</span>
+                        <button class="btn btn-sm btn-outline-secondary" id="sales-refresh"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                    </div>
+                    <div class="panel-body">
+                        <div class="table-responsive-md">
+                            <table class="table table-hover mb-0 mobile-card-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID Tag</th>
+                                        <th>Species</th>
+                                        <th>Breed</th>
+                                        <th>Age</th>
+                                        <th>Weight</th>
+                                        <th>Status</th>
+                                        <th>Seller</th>
+                                        <th>Price</th>
+                                        <th class="table-actions text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sales-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
+
+            <!-- ===================== HEALTH VIEW ===================== -->
             <section id="view-health" style="display:none">
-                <div class="panel-card"><div class="panel-body">
-                    <div class="placeholder-panel"><i class="bi bi-clipboard2-pulse"></i>Health records are coming soon.</div>
-                </div></div>
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <span>Health &amp; Vaccination Records</span>
+                        <div class="d-flex gap-2 align-items-center">
+                            <select id="health-status-filter" class="form-select form-select-sm" style="width:auto">
+                                <option value="all">All Animals</option>
+                                <option value="attention">Needs Attention</option>
+                                <option value="vaccinated">Vaccinated</option>
+                                <option value="unvaccinated">Not Vaccinated</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline-secondary" id="health-refresh"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="table-responsive-md">
+                            <table class="table table-hover mb-0 mobile-card-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID Tag</th>
+                                        <th>Species</th>
+                                        <th>Breed</th>
+                                        <th>Health Status</th>
+                                        <th>Vaccination</th>
+                                        <th>Location</th>
+                                        <th>Owner</th>
+                                        <th class="table-actions text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="health-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
+
+            <!-- ===================== REPORTS VIEW (ADMIN) ===================== -->
             <section id="view-reports" style="display:none">
-                <div class="panel-card"><div class="panel-body">
-                    <div class="placeholder-panel"><i class="bi bi-bar-chart"></i>Reports are coming soon.</div>
-                </div></div>
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-xl">
+                        <div class="stat-card">
+                            <div class="stat-head">
+                                <span class="stat-icon blue"><i class="bi bi-bucket-fill"></i></span>
+                                <div>
+                                    <div class="stat-title">Total Animals</div>
+                                    <div class="stat-value" id="report-total">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-sub">All animals in the system</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-xl">
+                        <div class="stat-card">
+                            <div class="stat-head">
+                                <span class="stat-icon teal"><i class="bi bi-diagram-3-fill"></i></span>
+                                <div>
+                                    <div class="stat-title">Species</div>
+                                    <div class="stat-value" id="report-species">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-sub">Distinct species recorded</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-xl">
+                        <div class="stat-card">
+                            <div class="stat-head">
+                                <span class="stat-icon green"><i class="bi bi-heart-pulse-fill"></i></span>
+                                <div>
+                                    <div class="stat-title">Healthy</div>
+                                    <div class="stat-value" id="report-healthy">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-sub" id="report-healthy-sub">of total animals</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-xl">
+                        <div class="stat-card">
+                            <div class="stat-head">
+                                <span class="stat-icon red"><i class="bi bi-heart-pulse"></i></span>
+                                <div>
+                                    <div class="stat-title">Sick</div>
+                                    <div class="stat-value" id="report-sick">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-sub" id="report-sick-sub">of total animals</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-xl">
+                        <div class="stat-card">
+                            <div class="stat-head">
+                                <span class="stat-icon purple"><i class="bi bi-tag-fill"></i></span>
+                                <div>
+                                    <div class="stat-title">For Sale</div>
+                                    <div class="stat-value" id="report-for-sale">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-sub">Listed on the marketplace</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <span>Species Breakdown</span>
+                        <button class="btn btn-sm btn-outline-secondary" id="reports-refresh"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                    </div>
+                    <div class="panel-body">
+                        <div class="table-responsive-md">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Species</th>
+                                        <th>Count</th>
+                                        <th>Share</th>
+                                        <th>Healthy</th>
+                                        <th>Sick</th>
+                                        <th>For Sale</th>
+                                        <th>Total Asking Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reports-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
+
+            <!-- ===================== SETTINGS VIEW (ADMIN) ===================== -->
             <section id="view-settings" style="display:none">
-                <div class="panel-card"><div class="panel-body">
-                    <div class="placeholder-panel"><i class="bi bi-gear"></i>Settings are coming soon.</div>
-                </div></div>
+                <div class="row g-3">
+                    <div class="col-12 col-lg-6">
+                        <div class="panel-card">
+                            <div class="panel-header"><span>Account</span></div>
+                            <div class="panel-body">
+                                <p class="mb-1"><strong>Name:</strong> <span id="settings-name">-</span></p>
+                                <p class="mb-1"><strong>Email:</strong> <span id="settings-email">-</span></p>
+                                <p class="mb-3"><strong>Role:</strong> <span class="badge bg-secondary" id="settings-role">-</span></p>
+                                <button class="btn btn-outline-primary" id="settings-refresh"><i class="bi bi-arrow-clockwise me-2"></i>Refresh App Data</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6">
+                        <div class="panel-card">
+                            <div class="panel-header"><span>Market Price Tool</span></div>
+                            <div class="panel-body">
+                                <p class="text-muted">Get a suggested asking price based on current listings.</p>
+                                <div class="input-group">
+                                    <select id="settings-species" class="form-select">
+                                        <option value="Cattle">Cattle</option>
+                                        <option value="Sheep">Sheep</option>
+                                    </select>
+                                    <button class="btn btn-success" id="settings-suggest"><i class="bi bi-magic"></i> Suggest Price</button>
+                                </div>
+                                <p class="mt-3 mb-0 fw-semibold" id="settings-suggestion"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
+
+            <!-- ===================== PURCHASES VIEW (BUYER) ===================== -->
             <section id="view-purchases" style="display:none">
-                <div class="panel-card"><div class="panel-body">
-                    <div class="placeholder-panel"><i class="bi bi-bag-check"></i>Your purchases will appear here once sales are enabled.</div>
-                </div></div>
+                <div class="panel-card">
+                    <div class="panel-body">
+                        <div class="placeholder-panel">
+                            <i class="bi bi-bag-check"></i>
+                            <div>Animals you buy will be listed here once the sale is completed by the seller.</div>
+                            <button class="btn btn-success mt-2" data-goto-view="marketplace"><i class="bi bi-shop me-2"></i>Browse Marketplace</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-card mt-3">
+                    <div class="panel-header"><span>Current Asking Prices</span></div>
+                    <div class="panel-body">
+                        <div class="row g-2">
+                            <div class="col-12 col-md-6">
+                                <div class="d-flex justify-content-between align-items-center border rounded p-3">
+                                    <span><i class="bi bi-bucket-fill me-2"></i>Cattle</span>
+                                    <strong id="purchases-price-cattle">-</strong>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="d-flex justify-content-between align-items-center border rounded p-3">
+                                    <span><i class="bi bi-bucket me-2"></i>Sheep</span>
+                                    <strong id="purchases-price-sheep">-</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <footer class="page-footer">&copy; 2026 Livestock Management System. All rights reserved.</footer>

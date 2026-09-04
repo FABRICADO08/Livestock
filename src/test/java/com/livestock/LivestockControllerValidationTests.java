@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -159,6 +160,33 @@ class LivestockControllerValidationTests {
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("success")));
+    }
+
+    @Test
+    void getByIdReturnsRecord() throws Exception {
+        MockHttpSession session = sessionAs("user@example.com");
+
+        Livestock existing = new Livestock();
+        existing.setId("abc123");
+        existing.setSpecies("Cattle");
+        existing.setBreed("Angus");
+        when(livestockRepository.findById("abc123")).thenReturn(Optional.of(existing));
+
+        mockMvc.perform(get("/api/livestock/abc123").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is("abc123")))
+                .andExpect(jsonPath("$.species", is("Cattle")))
+                .andExpect(jsonPath("$.breed", is("Angus")));
+    }
+
+    @Test
+    void getByIdReturnsNotFoundForUnknownId() throws Exception {
+        MockHttpSession session = sessionAs("user@example.com");
+        when(livestockRepository.findById("missing")).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/livestock/missing").session(session))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error", is("Record not found")));
     }
 
     @Test
