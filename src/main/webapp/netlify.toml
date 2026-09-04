@@ -3,3 +3,10 @@
   to = "https://livestock-m7q4.onrender.com/api/:splat"
   status = 200
   force = true
+
+# Show the landing page first when the site's online link is opened
+[[redirects]]
+  from = "/"
+  to = "/landing.html"
+  status = 200
+  force = true

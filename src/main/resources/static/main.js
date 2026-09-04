@@ -49,6 +49,18 @@ function setupEventListeners() {
     if (animalsRefresh) animalsRefresh.addEventListener('click', loadLivestock);
     const marketplaceRefresh = document.getElementById('marketplace-refresh');
     if (marketplaceRefresh) marketplaceRefresh.addEventListener('click', loadMarketplace);
+    const salesRefresh = document.getElementById('sales-refresh');
+    if (salesRefresh) salesRefresh.addEventListener('click', async () => { await loadLivestock(); renderSales(); });
+    const healthRefresh = document.getElementById('health-refresh');
+    if (healthRefresh) healthRefresh.addEventListener('click', async () => { await loadLivestock(); renderHealth(); });
+    const healthStatusFilter = document.getElementById('health-status-filter');
+    if (healthStatusFilter) healthStatusFilter.addEventListener('change', renderHealth);
+    const reportsRefresh = document.getElementById('reports-refresh');
+    if (reportsRefresh) reportsRefresh.addEventListener('click', async () => { await loadLivestock(); renderReports(); });
+    const settingsRefresh = document.getElementById('settings-refresh');
+    if (settingsRefresh) settingsRefresh.addEventListener('click', async () => { await loadLivestock(); showAlert('Data refreshed', 'success'); });
+    const settingsSuggest = document.getElementById('settings-suggest');
+    if (settingsSuggest) settingsSuggest.addEventListener('click', suggestPriceFromSettings);
 
     document.getElementById('confirm-buy-btn').addEventListener('click', confirmBuy);
 
@@ -91,7 +103,7 @@ async function logout() {
     }
     currentUser = null;
     cachedAnimals = [];
-    window.location.href = '/signin.html';
+    window.location.href = '/landing.html';
 }
 
 function displayName(user) {
@@ -155,8 +167,8 @@ const VIEW_TITLES = {
     animals: ['Animals', 'Browse and manage livestock records'],
     marketplace: ['Marketplace', 'Browse livestock available for sale'],
     users: ['Users', 'Manage user accounts and roles'],
-    sales: ['Sales', 'Sales tracking'],
-    health: ['Health Records', 'Animal health records'],
+    sales: ['Sales', 'Livestock currently listed for sale'],
+    health: ['Health Records', 'Health and vaccination status of your herd'],
     reports: ['Reports', 'Reports and analytics'],
     settings: ['Settings', 'Application settings'],
     purchases: ['My Purchases', 'Your purchased livestock']
@@ -180,6 +192,11 @@ function switchView(view) {
     if (view === 'users') loadUsers();
     if (view === 'marketplace' && cachedMarketplace.length === 0) loadMarketplace();
     if (view === 'animals' && cachedAnimals.length === 0) loadLivestock();
+    if (view === 'sales') loadLivestock().then(renderSales);
+    if (view === 'health') loadLivestock().then(renderHealth);
+    if (view === 'reports') loadLivestock().then(renderReports);
+    if (view === 'settings') renderSettings();
+    if (view === 'purchases') renderPurchases();
 
     closeSidebar();
 }
@@ -335,6 +352,9 @@ async function loadLivestock() {
         if (currentView === 'animals') {
             displayLivestock(currentUser.role === 'ADMIN' ? cachedAnimals : cachedAnimals.filter(isOwnAnimal));
         }
+        if (currentView === 'sales') renderSales();
+        if (currentView === 'health') renderHealth();
+        if (currentView === 'reports') renderReports();
         renderDashboard();
     } catch (error) {
         showAlert('Network error: ' + error.message, 'danger');
@@ -485,6 +505,7 @@ async function loadMarketplace() {
         if (!response.ok) return;
         cachedMarketplace = await response.json();
         renderMarketplace();
+        if (currentView === 'purchases') renderPurchases();
     } catch (error) {
         console.error('Error loading marketplace:', error);
     }
@@ -589,6 +610,221 @@ function confirmBuy() {
     bootstrap.Modal.getInstance(document.getElementById('buyModal'))?.hide();
     showAlert(`Purchase request submitted${price ? ` at R ${Number(price).toLocaleString()}` : ''}. The seller will be notified to complete the sale.`, 'success');
     pendingBuyId = null;
+}
+
+/* ---------------- Sales ---------------- */
+
+function isForSale(animal) {
+    return animal.for_sale !== false;
+}
+
+function renderSales() {
+    const tableBody = document.getElementById('sales-table-body');
+    if (!tableBody) return;
+
+    const animals = visibleAnimals().filter(isForSale);
+    setText('sales-total', animals.length);
+    const totalValue = animals.reduce((sum, a) => sum + (Number(a.price) || 0), 0);
+    setText('sales-value', formatPrice(totalValue));
+
+    tableBody.innerHTML = '';
+    if (animals.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No livestock listed for sale right now.</td></tr>';
+        return;
+    }
+
+    animals.forEach(animal => {
+        const row = document.createElement('tr');
+        const statusBadge = animal.health_status === 'Healthy'
+            ? '<span class="badge bg-success">Healthy</span>'
+            : `<span class="badge bg-danger">${animal.health_status || 'Not Healthy'}</span>`;
+        const displayAge = calculateAgeFromDateOfBirth(animal.date_of_birth);
+
+        row.innerHTML = `
+            <td data-label="ID Tag">${animal.id_tag || animal.id}</td>
+            <td data-label="Species"><strong>${animal.species}</strong></td>
+            <td data-label="Breed">${animal.breed}</td>
+            <td data-label="Age">${displayAge !== null ? displayAge : (animal.age ?? 'N/A')}</td>
+            <td data-label="Weight">${animal.weight} kg</td>
+            <td data-label="Status">${statusBadge}</td>
+            <td data-label="Seller">${animal.created_by || 'N/A'}</td>
+            <td data-label="Price">${formatPrice(animal.price)}</td>
+            <td data-label="Actions" class="table-actions actions-cell">
+                <button class="btn btn-sm btn-info action-btn" data-action="view" data-id="${animal.id}" title="View">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    tableBody.querySelectorAll('[data-action="view"]').forEach(btn =>
+        btn.addEventListener('click', () => viewDetails(btn.dataset.id)));
+}
+
+/* ---------------- Health Records ---------------- */
+
+function isVaccinated(animal) {
+    const status = (animal.vaccination_status || '').toLowerCase();
+    return status.includes('vaccinated') && !status.includes('not') && !status.includes('un');
+}
+
+function renderHealth() {
+    const tableBody = document.getElementById('health-table-body');
+    if (!tableBody) return;
+
+    const filter = document.getElementById('health-status-filter')?.value || 'all';
+    const animals = visibleAnimals().filter(animal => {
+        if (filter === 'attention') return animal.health_status !== 'Healthy';
+        if (filter === 'vaccinated') return isVaccinated(animal);
+        if (filter === 'unvaccinated') return !isVaccinated(animal);
+        return true;
+    });
+
+    tableBody.innerHTML = '';
+    if (animals.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No animals match this filter.</td></tr>';
+        return;
+    }
+
+    animals.forEach(animal => {
+        const row = document.createElement('tr');
+        const statusBadge = animal.health_status === 'Healthy'
+            ? '<span class="badge bg-success">Healthy</span>'
+            : `<span class="badge bg-danger">${animal.health_status || 'Not Healthy'}</span>`;
+        const vaccinationBadge = isVaccinated(animal)
+            ? `<span class="badge bg-success">${animal.vaccination_status}</span>`
+            : `<span class="badge bg-warning text-dark">${animal.vaccination_status || 'Unknown'}</span>`;
+
+        row.innerHTML = `
+            <td data-label="ID Tag">${animal.id_tag || animal.id}</td>
+            <td data-label="Species"><strong>${animal.species}</strong></td>
+            <td data-label="Breed">${animal.breed}</td>
+            <td data-label="Health Status">${statusBadge}</td>
+            <td data-label="Vaccination">${vaccinationBadge}</td>
+            <td data-label="Location">${animal.location || 'N/A'}</td>
+            <td data-label="Owner">${animal.created_by || 'N/A'}</td>
+            <td data-label="Actions" class="table-actions actions-cell">
+                <button class="btn btn-sm btn-info action-btn" data-action="view" data-id="${animal.id}" title="View">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    tableBody.querySelectorAll('[data-action="view"]').forEach(btn =>
+        btn.addEventListener('click', () => viewDetails(btn.dataset.id)));
+}
+
+/* ---------------- Reports (ADMIN) ---------------- */
+
+function renderReports() {
+    const tableBody = document.getElementById('reports-table-body');
+    if (!tableBody) return;
+
+    const animals = cachedAnimals;
+    const total = animals.length;
+    const healthy = animals.filter(a => a.health_status === 'Healthy').length;
+    const sick = total - healthy;
+    const forSale = animals.filter(isForSale).length;
+    const speciesCount = new Set(animals.map(a => a.species).filter(Boolean)).size;
+
+    setText('report-total', total);
+    setText('report-species', speciesCount);
+    setText('report-healthy', healthy);
+    setText('report-sick', sick);
+    setText('report-for-sale', forSale);
+    setText('report-healthy-sub', total ? `${Math.round((healthy / total) * 100)}% of total animals` : 'No animals yet');
+    setText('report-sick-sub', total ? `${Math.round((sick / total) * 100)}% of total animals` : 'No animals yet');
+
+    const bySpecies = {};
+    animals.forEach(animal => {
+        const key = animal.species || 'Other';
+        if (!bySpecies[key]) {
+            bySpecies[key] = { count: 0, healthy: 0, sick: 0, forSale: 0, value: 0 };
+        }
+        const bucket = bySpecies[key];
+        bucket.count++;
+        if (animal.health_status === 'Healthy') bucket.healthy++; else bucket.sick++;
+        if (isForSale(animal)) {
+            bucket.forSale++;
+            bucket.value += Number(animal.price) || 0;
+        }
+    });
+
+    tableBody.innerHTML = '';
+    const speciesNames = Object.keys(bySpecies);
+    if (speciesNames.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No data available yet.</td></tr>';
+        return;
+    }
+
+    speciesNames.sort().forEach(species => {
+        const bucket = bySpecies[species];
+        const share = total ? `${Math.round((bucket.count / total) * 100)}%` : '0%';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${species}</strong></td>
+            <td>${bucket.count}</td>
+            <td>${share}</td>
+            <td>${bucket.healthy}</td>
+            <td>${bucket.sick}</td>
+            <td>${bucket.forSale}</td>
+            <td>${formatPrice(bucket.value)}</td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+/* ---------------- Settings (ADMIN) ---------------- */
+
+function renderSettings() {
+    if (!currentUser) return;
+    setText('settings-name', displayName(currentUser) || '-');
+    setText('settings-email', currentUser.email || '-');
+    setText('settings-role', ROLE_LABELS[currentUser.role] || currentUser.role || '-');
+}
+
+async function suggestPriceFromSettings() {
+    const species = document.getElementById('settings-species')?.value || '';
+    const target = document.getElementById('settings-suggestion');
+    if (!target) return;
+    target.textContent = 'Loading...';
+    try {
+        const response = await fetch(`/api/pricing/suggestions?species=${encodeURIComponent(species)}`);
+        if (!response.ok) throw new Error('Could not load suggestion');
+        const suggestion = await response.json();
+        if (suggestion.suggested_price !== null && suggestion.suggested_price !== undefined) {
+            target.textContent = `Suggested ${species} price: R ${Number(suggestion.suggested_price).toLocaleString()} (based on ${suggestion.sample_size} listing(s))`;
+        } else {
+            target.textContent = 'No price data available yet.';
+        }
+    } catch (error) {
+        target.textContent = 'Could not load a price suggestion right now.';
+    }
+}
+
+/* ---------------- Purchases (BUYER) ---------------- */
+
+async function renderPurchases() {
+    if (cachedMarketplace.length === 0) {
+        await loadMarketplace();
+    }
+    updatePurchasePriceHint('purchases-price-cattle', 'Cattle');
+    updatePurchasePriceHint('purchases-price-sheep', 'Sheep');
+}
+
+function updatePurchasePriceHint(elementId, species) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const priced = cachedMarketplace.filter(a => a.species === species && a.price !== null && a.price !== undefined);
+    if (priced.length === 0) {
+        el.textContent = 'No listings';
+        return;
+    }
+    const avg = priced.reduce((sum, a) => sum + Number(a.price), 0) / priced.length;
+    el.textContent = `avg ${formatPrice(Math.round(avg * 100) / 100)}`;
 }
 
 /* ---------------- Users (ADMIN) ---------------- */
