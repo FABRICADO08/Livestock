@@ -263,6 +263,13 @@ body {
 }
 .table td { vertical-align: middle; }
 
+/* Keep long cell content (emails, locations, tags) from overflowing the panel */
+.table-responsive-lg .table td,
+.table-responsive-lg .table th {
+    max-width: 16rem;
+    overflow-wrap: anywhere;
+}
+
 .role-badge { font-size: 0.72rem; letter-spacing: 0.03em; }
 .role-badge.role-admin { background: #fde6e5; color: #c92a2a; }
 .role-badge.role-user { background: #e3ecff; color: #2f6bff; }
@@ -366,6 +373,8 @@ body {
         justify-content: space-between;
         align-items: flex-start;
         gap: 0.75rem;
+        overflow-wrap: anywhere;
+        min-width: 0;
     }
     .mobile-card-table tbody td:last-child { border-bottom: 0; }
     .mobile-card-table tbody td::before {
