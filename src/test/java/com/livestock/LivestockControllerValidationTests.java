@@ -98,7 +98,7 @@ class LivestockControllerValidationTests {
 
         Livestock existing = new Livestock();
         existing.setId("abc123");
-        existing.setCreatedBy("user@example.com");
+        existing.setCreatedByEmail("user@example.com");
         when(livestockRepository.findById("abc123")).thenReturn(Optional.of(existing));
         when(livestockRepository.save(any(Livestock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -117,5 +117,63 @@ class LivestockControllerValidationTests {
         Livestock saved = captor.getValue();
         org.assertj.core.api.Assertions.assertThat(saved.getDateOfBirth()).isEqualTo("2019-06-01");
         org.assertj.core.api.Assertions.assertThat(saved.getAge()).isNotNull();
+    }
+
+    @Test
+    void createRejectsDuplicateIdTag() throws Exception {
+        MockHttpSession session = sessionAs("user@example.com");
+
+        Livestock existing = new Livestock();
+        existing.setId("other1");
+        existing.setIdTag("APP-321");
+        when(livestockRepository.findAll()).thenReturn(java.util.List.of(existing));
+
+        String body = "{\"species\":\"Cattle\",\"date_of_birth\":\"2025-05-06\",\"id_tag\":\"app-321\"}";
+
+        mockMvc.perform(post("/api/livestock/")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error",
+                        is("An animal with ID tag 'app-321' already exists. ID tags must be unique.")));
+    }
+
+    @Test
+    void updateAllowsSameIdTagOnSameRecord() throws Exception {
+        MockHttpSession session = sessionAs("user@example.com");
+
+        Livestock existing = new Livestock();
+        existing.setId("abc123");
+        existing.setIdTag("APP-321");
+        existing.setCreatedByEmail("user@example.com");
+        when(livestockRepository.findById("abc123")).thenReturn(Optional.of(existing));
+        when(livestockRepository.findAll()).thenReturn(java.util.List.of(existing));
+        when(livestockRepository.save(any(Livestock.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        String body = "{\"species\":\"Cattle\",\"date_of_birth\":\"2025-05-06\",\"id_tag\":\"APP-321\"}";
+
+        mockMvc.perform(put("/api/livestock/abc123")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("success")));
+    }
+
+    @Test
+    void buyerCannotCreateLivestock() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        when(auth.requireEmail(session)).thenReturn("buyer@example.com");
+        when(auth.currentUserRole(session)).thenReturn("BUYER");
+
+        String body = "{\"species\":\"Cattle\",\"date_of_birth\":\"2025-05-06\"}";
+
+        mockMvc.perform(post("/api/livestock/")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error", is("Buyers cannot manage livestock records")));
     }
 }

@@ -61,6 +61,14 @@ public class Livestock {
     @Field("updated_by")
     private String updatedBy;
 
+    @JsonAlias("created_by_email")
+    @Field("created_by_email")
+    private String createdByEmail;
+
+    @JsonAlias("updated_by_email")
+    @Field("updated_by_email")
+    private String updatedByEmail;
+
     @JsonAlias("created_at")
     @Field("created_at")
     private Date createdAt;
@@ -219,6 +227,22 @@ public class Livestock {
 
     public void setUpdatedBy(String updatedBy) {
         this.updatedBy = updatedBy;
+    }
+
+    public String getCreatedByEmail() {
+        return createdByEmail;
+    }
+
+    public void setCreatedByEmail(String createdByEmail) {
+        this.createdByEmail = createdByEmail;
+    }
+
+    public String getUpdatedByEmail() {
+        return updatedByEmail;
+    }
+
+    public void setUpdatedByEmail(String updatedByEmail) {
+        this.updatedByEmail = updatedByEmail;
     }
 
     public Date getCreatedAt() {

@@ -43,8 +43,13 @@ async function initializeAuth() {
             googleClientId = config.googleClientId;
         }
 
-        if (sessionResponse.ok) {
+    if (sessionResponse.ok) {
             currentUser = await sessionResponse.json();
+            if (currentUser.role === 'BUYER') {
+                showAlert('Buyers cannot add or edit livestock records', 'warning');
+                setTimeout(() => { window.location.href = '/index.html'; }, 1200);
+                return;
+            }
             applyAuthState();
             return;
         }
@@ -61,7 +66,8 @@ function applyAuthState() {
     const submitBtn = document.getElementById('submit-btn');
 
     if (currentUser) {
-        formHint.textContent = `New records will be created by: ${currentUser.email} (${currentUser.role})`;
+        const name = (currentUser.name && currentUser.name.trim()) || currentUser.email;
+        formHint.textContent = `New records will be created by: ${name} (${currentUser.role})`;
         submitBtn.disabled = false;
     } else {
         formHint.textContent = 'Sign in with Google to add records.';
@@ -137,6 +143,8 @@ async function loadAnimalForEdit() {
         document.getElementById('vaccination-status').value = animal.vaccination_status || '';
         document.getElementById('location').value = animal.location || '';
         document.getElementById('id-tag').value = animal.id_tag || '';
+        document.getElementById('price').value = animal.price ?? '';
+        document.getElementById('for-sale').checked = animal.for_sale !== false;
         document.getElementById('notes').value = animal.notes || '';
 
         document.getElementById('form-title').textContent = 'Edit Livestock';
@@ -147,9 +155,28 @@ async function loadAnimalForEdit() {
 }
 
 function canModifyAnimal(animal) {
-    if (!currentUser) return false;
+    if (!currentUser || currentUser.role === 'BUYER') return false;
     if (currentUser.role === 'ADMIN') return true;
-    return animal.created_by && animal.created_by.toLowerCase() === currentUser.email.toLowerCase();
+    const ownerEmail = (animal.created_by_email || '').toLowerCase();
+    if (ownerEmail && ownerEmail === currentUser.email.toLowerCase()) return true;
+    const createdBy = (animal.created_by || '').toLowerCase();
+    return createdBy === currentUser.email.toLowerCase()
+        || (!!currentUser.name && createdBy === currentUser.name.toLowerCase());
+}
+
+async function isIdTagTaken(idTag, excludeId) {
+    if (!idTag) return false;
+    try {
+        const response = await fetch('/api/livestock/?page=0&limit=50');
+        if (!response.ok) return false;
+        const animals = await response.json();
+        const normalized = idTag.trim().toLowerCase();
+        return animals.some(a =>
+            (a.id_tag || '').trim().toLowerCase() === normalized
+            && String(a.id) !== String(excludeId || ''));
+    } catch (error) {
+        return false;
+    }
 }
 
 async function handleFormSubmit(e) {
@@ -167,6 +194,13 @@ async function handleFormSubmit(e) {
     const method = id ? 'PUT' : 'POST';
     const endpoint = id ? `/api/livestock/${id}` : '/api/livestock/';
 
+    const idTag = document.getElementById('id-tag').value.trim();
+    if (idTag && await isIdTagTaken(idTag, id)) {
+        showAlert(`An animal with ID tag '${idTag}' already exists. ID tags must be unique.`, 'danger');
+        return;
+    }
+
+    const priceValue = document.getElementById('price').value;
     const animal = {
         species: document.getElementById('species').value,
         breed: document.getElementById('breed').value,
@@ -180,7 +214,9 @@ async function handleFormSubmit(e) {
         production_type: document.getElementById('production-type').value,
         vaccination_status: document.getElementById('vaccination-status').value,
         location: document.getElementById('location').value,
-        id_tag: document.getElementById('id-tag').value,
+        id_tag: idTag,
+        price: priceValue === '' ? null : parseFloat(priceValue),
+        for_sale: document.getElementById('for-sale').checked,
         notes: document.getElementById('notes').value
     };
 
@@ -247,7 +283,7 @@ function showAlert(message, type) {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
 
-    const container = document.querySelector('.container');
+    const container = document.querySelector('.container-xl') || document.querySelector('.container');
     container.insertBefore(alertDiv, container.firstChild);
 
     setTimeout(() => {
