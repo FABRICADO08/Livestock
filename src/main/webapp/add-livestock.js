@@ -46,18 +46,20 @@ async function initializeAuth() {
     if (sessionResponse.ok) {
             currentUser = await sessionResponse.json();
             if (currentUser.role === 'BUYER') {
-                showAlert('Buyers cannot add or edit livestock records', 'warning');
-                setTimeout(() => { window.location.href = '/index.html'; }, 1200);
+                // Buyers have no access to this page - send them to the marketplace
+                window.location.replace('/index.html');
                 return;
             }
             applyAuthState();
+            document.body.classList.add('auth-ready');
+            document.querySelector('.page-content')?.removeAttribute('aria-hidden');
             return;
         }
 
-        window.location.href = '/signin.html';
+        window.location.replace('/signin.html');
     } catch (error) {
         console.error('Auth initialization error:', error);
-        showAlert('Could not initialize authentication', 'danger');
+        window.location.replace('/signin.html');
     }
 }
 
