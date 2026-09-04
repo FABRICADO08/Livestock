@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,13 +32,13 @@ public class PriceSupport {
     public Suggestion suggest(List<Livestock> animals, String species) {
         List<Livestock> priced = animals == null ? List.of() : animals.stream()
                 .filter(a -> a.getPrice() != null && a.getPrice() > 0)
-                .toList();
+                .collect(Collectors.toList());
 
         String normalizedSpecies = species == null ? "" : species.trim();
         List<Livestock> sameSpecies = priced.stream()
                 .filter(a -> a.getSpecies() != null
                         && a.getSpecies().equalsIgnoreCase(normalizedSpecies))
-                .toList();
+                .collect(Collectors.toList());
 
         if (!normalizedSpecies.isEmpty() && !sameSpecies.isEmpty()) {
             return new Suggestion(round2(avg(sameSpecies)), "ZAR",
