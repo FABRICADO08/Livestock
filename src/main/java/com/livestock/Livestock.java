@@ -69,6 +69,14 @@ public class Livestock {
     @Field("updated_at")
     private Date updatedAt;
 
+    @JsonProperty("for_sale")
+    @Field("for_sale")
+    private Boolean forSale = Boolean.TRUE;
+
+    @JsonProperty("price")
+    @Field("price")
+    private Double price;
+
     public String getId() {
         return id;
     }
@@ -227,5 +235,21 @@ public class Livestock {
 
     public void setUpdatedAt(Date updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Boolean getForSale() {
+        return forSale;
+    }
+
+    public void setForSale(Boolean forSale) {
+        this.forSale = forSale;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
     }
 }

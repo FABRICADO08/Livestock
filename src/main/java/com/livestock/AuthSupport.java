@@ -68,6 +68,17 @@ public class AuthSupport {
         if ("ADMIN".equals(normalized) || "ADMINISTRATOR".equals(normalized)) {
             return "ADMIN";
         }
+        if ("BUYER".equals(normalized) || "CUSTOMER".equals(normalized)) {
+            return "BUYER";
+        }
         return "USER";
+    }
+
+    public boolean isValidRole(String role) {
+        if (role == null || role.isBlank()) {
+            return false;
+        }
+        String normalized = role.trim().toUpperCase();
+        return "ADMIN".equals(normalized) || "USER".equals(normalized) || "BUYER".equals(normalized);
     }
 }

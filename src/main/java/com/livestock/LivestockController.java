@@ -79,6 +79,16 @@ public class LivestockController {
         return all.subList(from, to).stream().map(this::toJson).collect(Collectors.toList());
     }
 
+    @GetMapping("/marketplace")
+    public List<Map<String, Object>> marketplace(HttpSession session) {
+        auth.requireEmail(session);
+        Query query = new Query();
+        query.addCriteria(Criteria.where("for_sale").ne(Boolean.FALSE));
+        return mongoTemplate.find(query, Livestock.class).stream()
+                .map(this::toJson)
+                .collect(Collectors.toList());
+    }
+
     @GetMapping("/stats")
     public Map<String, Object> stats(HttpSession session) {
         auth.requireEmail(session);
@@ -148,6 +158,10 @@ public class LivestockController {
         existing.setLocation(animal.getLocation());
         existing.setIdTag(animal.getIdTag());
         existing.setNotes(animal.getNotes());
+        if (animal.getForSale() != null) {
+            existing.setForSale(animal.getForSale());
+        }
+        existing.setPrice(animal.getPrice());
         existing.setUpdatedBy(email);
         existing.setUpdatedAt(new Date());
         livestockRepository.save(existing);
@@ -237,6 +251,8 @@ public class LivestockController {
         json.put("updated_by", a.getUpdatedBy());
         json.put("created_at", a.getCreatedAt());
         json.put("updated_at", a.getUpdatedAt());
+        json.put("for_sale", a.getForSale() == null || a.getForSale());
+        json.put("price", a.getPrice());
         return json;
     }
 }
