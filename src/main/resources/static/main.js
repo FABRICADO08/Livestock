@@ -1029,7 +1029,19 @@ async function loadMyPurchases() {
     if (!currentUser) return;
     try {
         const response = await fetch('/api/purchases/mine');
-        if (!response.ok) return;
+        if (!response.ok) {
+            cachedMyPurchases = [];
+            const tableBody = document.getElementById('purchases-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">
+                    Could not load your purchase requests. Please try again.
+                    <button class="btn btn-sm btn-outline-secondary ms-2" data-action="retry-my-purchases"><i class="bi bi-arrow-clockwise"></i> Retry</button>
+                </td></tr>`;
+                tableBody.querySelectorAll('[data-action="retry-my-purchases"]').forEach(btn =>
+                    btn.addEventListener('click', loadMyPurchases));
+            }
+            return;
+        }
         cachedMyPurchases = await response.json();
     } catch (error) {
         console.error('Error loading my purchases:', error);

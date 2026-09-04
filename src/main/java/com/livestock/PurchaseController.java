@@ -109,7 +109,11 @@ public class PurchaseController {
     @GetMapping("/mine")
     public List<Map<String, Object>> mine(HttpSession session) {
         String email = auth.requireEmail(session);
-        return purchaseRepository.findByBuyerEmailIgnoreCase(email).stream()
+        // Trim-tolerant, case-insensitive match so requests stored with a
+        // padded or differently-cased buyer email still show up for the buyer.
+        Pattern exact = Pattern.compile("^\\s*" + Pattern.quote(email.trim()) + "\\s*$", Pattern.CASE_INSENSITIVE);
+        return mongoTemplate.find(new Query(Criteria.where("buyer_email").regex(exact)), PurchaseRequest.class)
+                .stream()
                 .sorted(Comparator.comparing(PurchaseRequest::getCreatedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::toJson)
