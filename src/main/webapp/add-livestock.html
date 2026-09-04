@@ -83,18 +83,9 @@
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="classification" class="form-label fw-bold">Type</label>
-                            <select class="form-select" id="classification" required></select>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="age" class="form-label fw-bold">Age (years)</label>
-                            <input type="number" class="form-control" id="age" min="0" readonly required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="weight" class="form-label fw-bold">Weight (kg)</label>
-                            <input type="number" step="0.1" class="form-control" id="weight" min="0" required>
+                            <select class="form-select" id="classification" required>
+                                <option value="" selected disabled>Select species and gender first...</option>
+                            </select>
                         </div>
                     </div>
 
@@ -116,6 +107,18 @@
                         <div class="col-md-6 mb-3">
                             <label for="acquisition-date" class="form-label fw-bold">Acquisition Date</label>
                             <input type="date" class="form-control" id="acquisition-date">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="age" class="form-label fw-bold">Age (years)</label>
+                            <input type="number" class="form-control" id="age" min="0" readonly required>
+                            <div class="form-text">Calculated automatically from the date of birth.</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="weight" class="form-label fw-bold">Weight (kg)</label>
+                            <input type="number" step="0.1" class="form-control" id="weight" min="0" required>
                         </div>
                     </div>
 

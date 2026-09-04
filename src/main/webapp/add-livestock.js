@@ -1,13 +1,27 @@
 // Add Livestock page logic
 
 const breedsBySpecies = {
-    'Cattle': ['Holstein', 'Angus', 'Brahman', 'Jersey', 'Simmental', 'Hereford'],
-    'Sheep': ['Merino', 'Dorper', 'Romney', 'Suffolk', 'Corriedale', 'Texel']
+    'Cattle': [
+        'Holstein', 'Angus', 'Brahman', 'Jersey', 'Simmental', 'Hereford',
+        'Nguni', 'Bonsmara', 'Afrikaner', 'Charolais', 'Limousin', 'Sahiwal',
+        'Guernsey', 'Ayrshire', 'Santa Gertrudis', 'Beefmaster', 'Drakensberger'
+    ],
+    'Sheep': [
+        'Merino', 'Dorper', 'Romney', 'Suffolk', 'Corriedale', 'Texel',
+        'Dohne Merino', 'Damara', 'Hampshire', 'Dorset', 'Karakul',
+        'Blackhead Persian', 'South African Mutton Merino', 'Ile de France', 'Van Rooy'
+    ]
 };
 
-const classificationBySpecies = {
-    'Cattle': ['Calf', 'Heifer', 'Cow', 'Bull', 'Steer'],
-    'Sheep': ['Lamb', 'Ewe', 'Ram', 'Wether', 'Yearling']
+const classificationBySpeciesAndGender = {
+    'Cattle': {
+        'Male': ['Calf', 'Bull', 'Steer', 'Yearling'],
+        'Female': ['Calf', 'Heifer', 'Cow', 'Yearling']
+    },
+    'Sheep': {
+        'Male': ['Lamb', 'Ram', 'Wether', 'Yearling'],
+        'Female': ['Lamb', 'Ewe', 'Yearling']
+    }
 };
 
 let currentUser = null;
@@ -22,10 +36,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 function setupEventListeners() {
     const form = document.getElementById('livestock-form');
     const speciesSelect = document.getElementById('species');
+    const genderSelect = document.getElementById('gender');
     const dobInput = document.getElementById('date-of-birth');
 
     form.addEventListener('submit', handleFormSubmit);
     speciesSelect.addEventListener('change', updateBreedAndClassification);
+    genderSelect.addEventListener('change', updateBreedAndClassification);
     if (dobInput) {
         dobInput.addEventListener('change', () => syncAgeWithDob(false));
     }
@@ -79,6 +95,7 @@ function applyAuthState() {
 
 function updateBreedAndClassification() {
     const species = document.getElementById('species').value;
+    const gender = document.getElementById('gender').value;
     const breedSelect = document.getElementById('breed');
     const classificationSelect = document.getElementById('classification');
 
@@ -92,18 +109,24 @@ function updateBreedAndClassification() {
             option.textContent = breed;
             breedSelect.appendChild(option);
         });
+    } else {
+        breedSelect.disabled = true;
+        breedSelect.innerHTML = '<option value="" selected disabled>Select species first...</option>';
+    }
 
-        classificationSelect.innerHTML = '';
-        (classificationBySpecies[species] || []).forEach(classification => {
+    // Type (classification) depends on both species and gender
+    classificationSelect.innerHTML = '';
+    const types = (classificationBySpeciesAndGender[species] || {})[gender] || [];
+    if (types.length > 0) {
+        classificationSelect.innerHTML = '<option value="" selected disabled>Select Type...</option>';
+        types.forEach(classification => {
             const option = document.createElement('option');
             option.value = classification;
             option.textContent = classification;
             classificationSelect.appendChild(option);
         });
     } else {
-        breedSelect.disabled = true;
-        breedSelect.innerHTML = '<option value="" selected disabled>Select species first...</option>';
-        classificationSelect.innerHTML = '';
+        classificationSelect.innerHTML = '<option value="" selected disabled>Select species and gender first...</option>';
     }
 }
 
@@ -130,10 +153,20 @@ async function loadAnimalForEdit() {
 
         document.getElementById('livestock-id').value = animal.id;
         document.getElementById('species').value = animal.species;
+        document.getElementById('gender').value = animal.gender;
         updateBreedAndClassification();
         document.getElementById('breed').value = animal.breed;
-        document.getElementById('gender').value = animal.gender;
-        document.getElementById('classification').value = animal.classification;
+        // Keep the saved classification selectable even if it is not in the
+        // gender-specific list (e.g. legacy records)
+        const classificationSelect = document.getElementById('classification');
+        if (animal.classification
+            && !Array.from(classificationSelect.options).some(o => o.value === animal.classification)) {
+            const option = document.createElement('option');
+            option.value = animal.classification;
+            option.textContent = animal.classification;
+            classificationSelect.appendChild(option);
+        }
+        classificationSelect.value = animal.classification || '';
         document.getElementById('age').value = animal.age;
         document.getElementById('weight').value = animal.weight;
         document.getElementById('health-status').value = animal.health_status;
