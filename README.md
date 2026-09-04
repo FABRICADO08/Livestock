@@ -89,19 +89,23 @@ ALTER TABLE users ALTER COLUMN google_id DROP NOT NULL;
 Set these environment variables (Render.com or local shell):
 
 ```bash
-DB_URL=jdbc:postgresql://<host>:5432/<db>?currentSchema=public
-DB_USER=<database_user>
-DB_PASSWORD=<database_password>
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/<database>?retryWrites=true&w=majority
 GOOGLE_CLIENT_ID=<google_oauth_client_id>
 ADMIN_EMAILS=admin1@gmail.com,admin2@gmail.com
+```
+
+On Render, set `MONGO_URI` and reference it in your properties so Spring uses it:
+
+```properties
+# Tells Spring to use your MongoDB URL on Render
+spring.data.mongodb.uri=${MONGO_URI}
 ```
 
 Optional local fallback file at repository root (`local.properties`):
 
 ```properties
-DB_URL=jdbc:postgresql://localhost:5432/postgres?currentSchema=public
-DB_USER=postgres
-DB_PASSWORD=your_password
+spring.data.mongodb.uri=${MONGO_URI}
+MONGO_URI=mongodb://localhost:27017/livestock
 GOOGLE_CLIENT_ID=your_google_oauth_client_id
 ADMIN_EMAILS=admin1@gmail.com,admin2@gmail.com
 ```
