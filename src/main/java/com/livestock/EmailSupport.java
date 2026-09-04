@@ -41,7 +41,7 @@ public class EmailSupport {
                         @Value("${spring.mail.port:587}") int mailPort,
                         @Value("${spring.mail.username:}") String mailUsername,
                         @Value("${spring.mail.password:}") String mailPassword,
-                        @Value("${MAIL_FROM:}") String fromAddress) {
+                        @Value("${spring.mail.from:}") String fromAddress) {
         this.auth = auth;
         String host = firstNonBlank(mailHost, auth.getConfigValue("MAIL_HOST"));
         JavaMailSenderImpl sender = null;
@@ -72,7 +72,8 @@ public class EmailSupport {
             }
         }
         this.mailSender = sender;
-        this.fromAddress = firstNonBlank(fromAddress, auth.getConfigValue("MAIL_FROM"), DEFAULT_FROM);
+        this.fromAddress = firstNonBlank(fromAddress, System.getenv("MAIL_FROM"),
+                auth.getConfigValue("MAIL_FROM"), DEFAULT_FROM);
     }
 
     public boolean isEnabled() {
