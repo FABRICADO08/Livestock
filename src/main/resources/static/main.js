@@ -4,6 +4,8 @@ let currentPage = 0;
 const pageSize = 50;
 let currentUser = null;
 let cachedAnimals = [];
+let cachedSoldAnimals = [];
+let cachedDeadAnimals = [];
 let cachedMarketplace = [];
 let currentView = 'dashboard';
 let pendingBuyId = null;
@@ -55,6 +57,10 @@ function setupEventListeners() {
     if (healthRefresh) healthRefresh.addEventListener('click', async () => { await loadLivestock(); renderHealth(); });
     const healthStatusFilter = document.getElementById('health-status-filter');
     if (healthStatusFilter) healthStatusFilter.addEventListener('change', renderHealth);
+    const soldRefresh = document.getElementById('sold-refresh');
+    if (soldRefresh) soldRefresh.addEventListener('click', loadSoldAnimals);
+    const deadRefresh = document.getElementById('dead-refresh');
+    if (deadRefresh) deadRefresh.addEventListener('click', loadDeadAnimals);
     const reportsRefresh = document.getElementById('reports-refresh');
     if (reportsRefresh) reportsRefresh.addEventListener('click', async () => { await loadLivestock(); renderReports(); });
     const settingsRefresh = document.getElementById('settings-refresh');
@@ -107,6 +113,8 @@ async function logout() {
     }
     currentUser = null;
     cachedAnimals = [];
+    cachedSoldAnimals = [];
+    cachedDeadAnimals = [];
     window.location.href = '/landing.html';
 }
 
@@ -168,7 +176,9 @@ function closeSidebar() {
 
 const VIEW_TITLES = {
     dashboard: ['Dashboard', 'Overview of your livestock inventory and sales performance'],
-    animals: ['Animals', 'Browse and manage livestock records'],
+    animals: ['Animals', 'Live animals currently in your herd'],
+    sold: ['Sold Animals', 'Animals that have been sold'],
+    dead: ['Dead Animals', 'Animals recorded as dead'],
     marketplace: ['Marketplace', 'Browse livestock available for sale'],
     users: ['Users', 'Manage user accounts and roles'],
     sales: ['Sales', 'Livestock currently listed for sale'],
@@ -202,6 +212,8 @@ function switchView(view) {
         displayLivestock(currentUser.role === 'ADMIN' ? cachedAnimals : cachedAnimals.filter(isOwnAnimal));
         loadLivestock();
     }
+    if (view === 'sold') loadSoldAnimals();
+    if (view === 'dead') loadDeadAnimals();
     if (view === 'sales') loadLivestock().then(renderSales);
     if (view === 'health') loadLivestock().then(renderHealth);
     if (view === 'reports') loadLivestock().then(renderReports);
@@ -380,6 +392,17 @@ function isOwnAnimal(animal) {
         || (currentUser.name && createdBy === currentUser.name.toLowerCase());
 }
 
+function animalStatus(animal) {
+    return (animal.status || 'ACTIVE').toUpperCase();
+}
+
+function statusBadgeHtml(animal) {
+    const status = animalStatus(animal);
+    if (status === 'SOLD') return '<span class="badge bg-info text-dark">Sold</span>';
+    if (status === 'DEAD') return '<span class="badge bg-dark">Dead</span>';
+    return '<span class="badge bg-secondary">Active</span>';
+}
+
 function canModifyAnimal(animal) {
     if (!currentUser || currentUser.role === 'BUYER') return false;
     if (currentUser.role === 'ADMIN') return true;
@@ -397,9 +420,7 @@ function displayLivestock(animals) {
 
     animals.forEach(animal => {
         const row = document.createElement('tr');
-        const statusBadge = animal.health_status === 'Healthy'
-            ? '<span class="badge bg-success">Healthy</span>'
-            : `<span class="badge bg-danger">${animal.health_status || 'Not Healthy'}</span>`;
+        const statusBadge = statusBadgeHtml(animal);
         const displayAge = calculateAgeFromDateOfBirth(animal.date_of_birth);
         const canModify = canModifyAnimal(animal);
         const createdAt = animal.created_at || animal.date;
@@ -414,7 +435,7 @@ function displayLivestock(animals) {
             <td data-label="Gender">${animal.gender}</td>
             <td data-label="Type">${animal.classification}</td>
             <td data-label="Price">${formatPrice(animal.price)}</td>
-            <td data-label="Created By">${animal.created_by || 'N/A'}</td>
+            <td data-label="Owner">${animal.created_by || 'N/A'}</td>
             <td data-label="Created At">${createdAt ? new Date(createdAt).toLocaleDateString() : 'N/A'}</td>
             <td data-label="Actions" class="table-actions actions-cell">
                 <button class="btn btn-sm btn-info action-btn" data-action="view" data-id="${animal.id}" title="View">
@@ -437,6 +458,76 @@ function displayLivestock(animals) {
         btn.addEventListener('click', () => editAnimal(btn.dataset.id)));
     tableBody.querySelectorAll('[data-action="delete"]').forEach(btn =>
         btn.addEventListener('click', () => deleteAnimal(btn.dataset.id)));
+}
+
+/* ---------------- Sold / Dead (separated lists) ---------------- */
+
+async function loadByStatus(status) {
+    if (!currentUser || currentUser.role === 'BUYER') return [];
+    try {
+        const response = await fetch(`/api/livestock/?status=${status}&page=0&limit=${pageSize}`);
+        if (!response.ok) return [];
+        return await response.json();
+    } catch (error) {
+        return [];
+    }
+}
+
+async function loadSoldAnimals() {
+    cachedSoldAnimals = await loadByStatus('SOLD');
+    renderStatusList('sold-table-body', visibleStatusAnimals(cachedSoldAnimals), true);
+}
+
+async function loadDeadAnimals() {
+    cachedDeadAnimals = await loadByStatus('DEAD');
+    renderStatusList('dead-table-body', visibleStatusAnimals(cachedDeadAnimals), false);
+}
+
+function visibleStatusAnimals(list) {
+    if (!currentUser) return [];
+    if (currentUser.role === 'ADMIN') return list;
+    return list.filter(isOwnAnimal);
+}
+
+function renderStatusList(tbodyId, animals, showPrice) {
+    const tableBody = document.getElementById(tbodyId);
+    if (!tableBody) return;
+    const colspan = showPrice ? 9 : 8;
+    tableBody.innerHTML = '';
+    if (animals.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-muted py-4">No animals in this list.</td></tr>`;
+        return;
+    }
+
+    animals.forEach(animal => {
+        const row = document.createElement('tr');
+        const displayAge = calculateAgeFromDateOfBirth(animal.date_of_birth);
+        const canModify = canModifyAnimal(animal);
+        row.innerHTML = `
+            <td data-label="ID Tag">${animal.id_tag || animal.id}</td>
+            <td data-label="Species"><strong>${animal.species}</strong></td>
+            <td data-label="Breed">${animal.breed}</td>
+            <td data-label="Age">${displayAge !== null ? displayAge : (animal.age ?? 'N/A')}</td>
+            <td data-label="Weight">${animal.weight} kg</td>
+            <td data-label="Status">${statusBadgeHtml(animal)}</td>
+            <td data-label="${showPrice ? 'Seller' : 'Owner'}">${animal.created_by || 'N/A'}</td>
+            ${showPrice ? `<td data-label="Price">${formatPrice(animal.price)}</td>` : ''}
+            <td data-label="Actions" class="table-actions actions-cell">
+                <button class="btn btn-sm btn-info action-btn" data-action="view" data-id="${animal.id}" title="View">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-warning action-btn" data-action="edit" data-id="${animal.id}" title="Edit" ${canModify ? '' : 'disabled'}>
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    tableBody.querySelectorAll('[data-action="view"]').forEach(btn =>
+        btn.addEventListener('click', () => viewDetails(btn.dataset.id)));
+    tableBody.querySelectorAll('[data-action="edit"]').forEach(btn =>
+        btn.addEventListener('click', () => editAnimal(btn.dataset.id)));
 }
 
 async function editAnimal(id) {
@@ -470,6 +561,8 @@ async function deleteAnimal(id) {
 
 async function viewDetails(id) {
     const animal = cachedAnimals.find(a => String(a.id) === String(id))
+        || cachedSoldAnimals.find(a => String(a.id) === String(id))
+        || cachedDeadAnimals.find(a => String(a.id) === String(id))
         || cachedMarketplace.find(a => String(a.id) === String(id));
     if (!animal) {
         showAlert('Animal not found', 'danger');
@@ -487,6 +580,7 @@ async function viewDetails(id) {
                 <p><strong>Weight:</strong> ${animal.weight} kg</p>
             </div>
             <div class="col-md-6">
+                <p><strong>Status:</strong> ${statusBadgeHtml(animal)}</p>
                 <p><strong>Health Status:</strong> <span class="badge ${animal.health_status === 'Healthy' ? 'bg-success' : 'bg-danger'}">${animal.health_status}</span></p>
                 <p><strong>Vaccination:</strong> ${animal.vaccination_status || 'N/A'}</p>
                 <p><strong>Production Type:</strong> ${animal.production_type || 'N/A'}</p>

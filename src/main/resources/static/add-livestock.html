@@ -89,14 +89,32 @@
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="health-status" class="form-label fw-bold">Health Status</label>
-                        <select class="form-select" id="health-status">
-                            <option value="Healthy">Healthy</option>
-                            <option value="Sick">Sick</option>
-                            <option value="Under Treatment">Under Treatment</option>
-                            <option value="Quarantined">Quarantined</option>
+                    <div class="mb-3" id="assign-seller-group" style="display:none">
+                        <label for="owner-email" class="form-label fw-bold">Assign to Seller <span class="text-danger">*</span></label>
+                        <select class="form-select" id="owner-email">
+                            <option value="" selected disabled>Loading sellers...</option>
                         </select>
+                        <div class="form-text">Admins must assign each new animal to the seller (user) who owns it.</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="status" class="form-label fw-bold">Animal Status</label>
+                            <select class="form-select" id="status">
+                                <option value="ACTIVE" selected>Active</option>
+                                <option value="SOLD">Sold</option>
+                                <option value="DEAD">Dead</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="health-status" class="form-label fw-bold">Health Status</label>
+                            <select class="form-select" id="health-status">
+                                <option value="Healthy">Healthy</option>
+                                <option value="Sick">Sick</option>
+                                <option value="Under Treatment">Under Treatment</option>
+                                <option value="Quarantined">Quarantined</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="row">

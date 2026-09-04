@@ -34,13 +34,36 @@ import org.springframework.web.server.ResponseStatusException;
 public class LivestockController {
 
     private final LivestockRepository livestockRepository;
+    private final UserRepository userRepository;
     private final MongoTemplate mongoTemplate;
     private final AuthSupport auth;
 
-    public LivestockController(LivestockRepository livestockRepository, MongoTemplate mongoTemplate, AuthSupport auth) {
+    public LivestockController(LivestockRepository livestockRepository, UserRepository userRepository,
+                               MongoTemplate mongoTemplate, AuthSupport auth) {
         this.livestockRepository = livestockRepository;
+        this.userRepository = userRepository;
         this.mongoTemplate = mongoTemplate;
         this.auth = auth;
+    }
+
+    private String normalizeStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return "ACTIVE";
+        }
+        String normalized = status.trim().toUpperCase();
+        if ("SOLD".equals(normalized) || "DEAD".equals(normalized)) {
+            return normalized;
+        }
+        return "ACTIVE";
+    }
+
+    private String statusOrDefault(Livestock animal) {
+        return animal.getStatus() == null || animal.getStatus().isBlank()
+                ? "ACTIVE" : animal.getStatus().trim().toUpperCase();
+    }
+
+    private boolean isActive(Livestock animal) {
+        return "ACTIVE".equals(statusOrDefault(animal));
     }
 
     private String displayName(String email) {
@@ -81,6 +104,7 @@ public class LivestockController {
     public List<Map<String, Object>> list(@RequestParam(name = "q", required = false) String q,
                                           @RequestParam(name = "filter", required = false) String filter,
                                           @RequestParam(name = "sort", required = false) String sort,
+                                          @RequestParam(name = "status", required = false) String status,
                                           @RequestParam(name = "page", defaultValue = "0") int page,
                                           @RequestParam(name = "limit", defaultValue = "50") int limit,
                                           HttpSession session) {
@@ -98,6 +122,19 @@ public class LivestockController {
             query.addCriteria(Criteria.where("health_status").is("Healthy"));
         } else if ("sick".equalsIgnoreCase(filter)) {
             query.addCriteria(Criteria.where("health_status").ne("Healthy"));
+        }
+
+        // By default the list only shows live (ACTIVE) animals; Sold/Dead are
+        // separated out and only returned when explicitly requested.
+        String statusFilter = status == null ? "" : status.trim().toUpperCase();
+        if ("SOLD".equals(statusFilter) || "DEAD".equals(statusFilter)) {
+            query.addCriteria(Criteria.where("status").is(statusFilter));
+        } else if (!"ALL".equals(statusFilter)) {
+            query.addCriteria(new Criteria().orOperator(
+                    Criteria.where("status").is("ACTIVE"),
+                    Criteria.where("status").exists(false),
+                    Criteria.where("status").is(null),
+                    Criteria.where("status").is("")));
         }
 
         List<Livestock> all = mongoTemplate.find(query, Livestock.class);
@@ -119,6 +156,7 @@ public class LivestockController {
         Query query = new Query();
         query.addCriteria(Criteria.where("for_sale").ne(Boolean.FALSE));
         return mongoTemplate.find(query, Livestock.class).stream()
+                .filter(this::isActive)
                 .map(this::toJson)
                 .collect(Collectors.toList());
     }
@@ -164,14 +202,25 @@ public class LivestockController {
         }
         ensureIdTagAvailable(animal.getIdTag(), null);
 
-        String displayName = displayName(email);
+        // An admin must assign the animal to a seller (a USER account); everyone
+        // else owns the records they create.
+        String creatorEmail = email;
+        String creatorName = displayName(email);
+        if ("ADMIN".equalsIgnoreCase(auth.currentUserRole(session))) {
+            User seller = requireSeller(animal.getOwnerEmail());
+            creatorEmail = seller.getEmail();
+            creatorName = seller.getName() != null && !seller.getName().isBlank()
+                    ? seller.getName() : seller.getEmail();
+        }
+
         Date now = new Date();
         animal.setId(null);
         animal.setAge(computedAge);
-        animal.setCreatedBy(displayName);
-        animal.setUpdatedBy(displayName);
-        animal.setCreatedByEmail(email);
-        animal.setUpdatedByEmail(email);
+        animal.setStatus(normalizeStatus(animal.getStatus()));
+        animal.setCreatedBy(creatorName);
+        animal.setUpdatedBy(creatorName);
+        animal.setCreatedByEmail(creatorEmail);
+        animal.setUpdatedByEmail(creatorEmail);
         animal.setRegistrationDate(now);
         animal.setCreatedAt(now);
         animal.setUpdatedAt(now);
@@ -211,6 +260,23 @@ public class LivestockController {
             existing.setForSale(animal.getForSale());
         }
         existing.setPrice(animal.getPrice());
+        // Only change the lifecycle status when one was explicitly provided so a
+        // partial update never silently reactivates a Sold/Dead record
+        if (animal.getStatus() != null && !animal.getStatus().isBlank()) {
+            existing.setStatus(normalizeStatus(animal.getStatus()));
+        } else if (existing.getStatus() == null || existing.getStatus().isBlank()) {
+            existing.setStatus("ACTIVE");
+        }
+
+        // An admin may reassign the record to a different seller (USER account)
+        if ("ADMIN".equalsIgnoreCase(auth.currentUserRole(session))
+                && animal.getOwnerEmail() != null && !animal.getOwnerEmail().isBlank()) {
+            User seller = requireSeller(animal.getOwnerEmail());
+            existing.setCreatedByEmail(seller.getEmail());
+            existing.setCreatedBy(seller.getName() != null && !seller.getName().isBlank()
+                    ? seller.getName() : seller.getEmail());
+        }
+
         existing.setUpdatedBy(displayName(email));
         existing.setUpdatedByEmail(email);
         existing.setUpdatedAt(new Date());
@@ -228,8 +294,28 @@ public class LivestockController {
         return success("Record deleted successfully", HttpStatus.OK.value());
     }
 
-    private Livestock requireOwnedRecord(String id, HttpSession session, String email) {
-        Optional<Livestock> found = livestockRepository.findById(id);
+    private User requireSeller(String ownerEmail) {
+        if (ownerEmail == null || ownerEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Admins must assign the animal to a seller (owner_email is required)");
+        }
+        String normalized = ownerEmail.trim();
+        Optional<User> seller = userRepository.findAll().stream()
+                .filter(u -> u.getEmail() != null && u.getEmail().equalsIgnoreCase(normalized))
+                .findFirst();
+        if (seller.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Seller '" + normalized + "' was not found. The user must sign in at least once.");
+        }
+        String role = auth.normalizeRole(seller.get().getRole());
+        if (!"USER".equals(role)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Animals can only be assigned to sellers (users with the USER role)");
+        }
+        return seller.get();
+    }
+
+    private Livestock requireOwnedRecord(String id, HttpSession session, String email) {        Optional<Livestock> found = livestockRepository.findById(id);
         if (found.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Record not found");
         }
@@ -307,6 +393,7 @@ public class LivestockController {
         json.put("updated_at", a.getUpdatedAt());
         json.put("for_sale", a.getForSale() == null || a.getForSale());
         json.put("price", a.getPrice());
+        json.put("status", statusOrDefault(a));
         return json;
     }
 }

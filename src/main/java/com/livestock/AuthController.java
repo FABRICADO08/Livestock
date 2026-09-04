@@ -92,6 +92,25 @@ public class AuthController {
                 .collect(Collectors.toList());
     }
 
+    @GetMapping("/sellers")
+    public List<Map<String, Object>> sellers(HttpSession session) {
+        auth.requireAdmin(session);
+        return userRepository.findAll().stream()
+                .filter(u -> "USER".equals(auth.normalizeRole(u.getRole())))
+                .sorted((a, b) -> {
+                    String ea = a.getEmail() == null ? "" : a.getEmail();
+                    String eb = b.getEmail() == null ? "" : b.getEmail();
+                    return ea.compareToIgnoreCase(eb);
+                })
+                .map(u -> {
+                    Map<String, Object> json = new HashMap<>();
+                    json.put("email", u.getEmail());
+                    json.put("name", u.getName());
+                    return json;
+                })
+                .collect(Collectors.toList());
+    }
+
     @PostMapping({"/google", "", "/"})
     public Map<String, String> google(@RequestBody Map<String, String> input, HttpSession session) {
         String clientId = auth.getConfigValue("GOOGLE_CLIENT_ID");

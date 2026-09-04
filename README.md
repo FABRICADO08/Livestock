@@ -10,6 +10,8 @@ A responsive web application for managing livestock records with MongoDB persist
   - `ADMIN`: full access, user management, edit/delete any record
   - `USER`: create/view all, edit/delete own records only
   - `BUYER`: customer role - browses the marketplace of livestock listed for sale, cannot create/edit/delete records
+- When an `ADMIN` adds an animal they must assign it to a seller (a `USER` account) - the seller becomes the record owner
+- Animal lifecycle status: `ACTIVE` (default), `SOLD`, `DEAD`. Sold and dead animals are removed from the main Animals list and shown in their own Sold/Dead views; the marketplace only lists active animals
 - New sign-ins default to `USER`; admins can change a user's role to `BUYER` in User Management
 - Audit trail per record (`created_by`, `updated_by`, `created_at`, `updated_at`) - records store the owner's full name plus their email (`created_by_email`)
 - ID tags (`id_tag`) are unique - an animal cannot be saved with a tag already used by another record
@@ -107,8 +109,9 @@ Render builds the Docker image from `DockerFile` (multi-stage Maven build, then 
 - `GET /api/auth/session` – current logged-in user (email, name, role, picture)
 - `POST /api/auth/logout` – logout
 - `GET /api/auth/users` – list users (ADMIN)
+- `GET /api/auth/sellers` – list USER accounts that animals can be assigned to (ADMIN)
 - `PUT /api/auth/users/{email}` – update role to ADMIN, USER or BUYER (ADMIN)
-- `GET /api/livestock/` – list livestock (supports `q`, `filter`, `sort`, `page`, `limit`)
+- `GET /api/livestock/` – list livestock (supports `q`, `filter`, `sort`, `status`, `page`, `limit`). By default only ACTIVE animals are returned; use `status=SOLD`, `status=DEAD` or `status=ALL` to include the separated lists
 - `GET /api/livestock/{id}` – fetch a single record (any signed-in user)
 - `GET /api/livestock/marketplace` – livestock listed for sale (any signed-in user)
 - `POST /api/livestock/` – create a record (ADMIN/USER; `id_tag` must be unique)
