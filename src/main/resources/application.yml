@@ -1,0 +1,12 @@
+spring:
+  data:
+    mongodb:
+      # Uses the MONGO_URI environment variable (set on Render); falls back to a local MongoDB
+      uri: ${MONGO_URI:mongodb://localhost:27017/livestock}
+  servlet:
+    session:
+      cookie:
+        same-site: lax
+
+server:
+  port: ${PORT:8080}
