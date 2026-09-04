@@ -29,6 +29,10 @@ public class PurchaseRequest {
     @Field("animal_summary")
     private String animalSummary;
 
+    // Species/breed snapshot used in notification emails.
+    private String species;
+    private String breed;
+
     @JsonProperty("seller_email")
     @Field("seller_email")
     private String sellerEmail;
@@ -81,6 +85,22 @@ public class PurchaseRequest {
 
     public void setAnimalSummary(String animalSummary) {
         this.animalSummary = animalSummary;
+    }
+
+    public String getSpecies() {
+        return species;
+    }
+
+    public void setSpecies(String species) {
+        this.species = species;
+    }
+
+    public String getBreed() {
+        return breed;
+    }
+
+    public void setBreed(String breed) {
+        this.breed = breed;
     }
 
     public String getSellerEmail() {

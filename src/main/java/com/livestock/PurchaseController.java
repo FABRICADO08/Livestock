@@ -85,6 +85,8 @@ public class PurchaseController {
         PurchaseRequest request = new PurchaseRequest();
         request.setLivestockId(animal.getId());
         request.setAnimalSummary(animalSummary(animal));
+        request.setSpecies(animal.getSpecies());
+        request.setBreed(animal.getBreed());
         String sellerEmail = animal.getCreatedByEmail() != null ? animal.getCreatedByEmail() : animal.getCreatedBy();
         request.setSellerEmail(sellerEmail);
         request.setSellerName(animal.getCreatedBy());
@@ -107,7 +109,11 @@ public class PurchaseController {
     @GetMapping("/mine")
     public List<Map<String, Object>> mine(HttpSession session) {
         String email = auth.requireEmail(session);
-        return purchaseRepository.findByBuyerEmailIgnoreCase(email).stream()
+        // Trim-tolerant, case-insensitive match so requests stored with a
+        // padded or differently-cased buyer email still show up for the buyer.
+        Pattern exact = Pattern.compile("^\\s*" + Pattern.quote(email.trim()) + "\\s*$", Pattern.CASE_INSENSITIVE);
+        return mongoTemplate.find(new Query(Criteria.where("buyer_email").regex(exact)), PurchaseRequest.class)
+                .stream()
                 .sorted(Comparator.comparing(PurchaseRequest::getCreatedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::toJson)
@@ -157,11 +163,17 @@ public class PurchaseController {
         request.setResolvedBy(displayName(email));
         purchaseRepository.save(request);
         this.email.send(request.getSellerEmail(),
-                "Purchase request cancelled: " + request.getAnimalSummary(),
+                "Purchase Request Cancelled: " + request.getAnimalSummary(),
                 "Hello" + namePart(request.getSellerName()) + ",\n\n"
-                + "The purchase request from " + request.getBuyerName() + " (" + request.getBuyerEmail() + ") for "
-                + request.getAnimalSummary() + " has been cancelled by the buyer.\n\n"
-                + "Livestock Management System");
+                + "This is to inform you that the purchase request below has been cancelled by the buyer.\n\n"
+                + "Purchase Details:\n"
+                + "- Animal: " + request.getAnimalSummary() + "\n"
+                + "- Buyer: " + request.getBuyerName() + "\n"
+                + "- Buyer Email: " + request.getBuyerEmail() + "\n\n"
+                + "Your listing is now available for other buyers on the marketplace.\n\n"
+                + "Thank you for using our Animal Marketplace.\n\n"
+                + "Best regards,\n"
+                + "Animal Marketplace Team");
         return success("Purchase request cancelled");
     }
 
@@ -229,42 +241,116 @@ public class PurchaseController {
     }
 
     private void notifyOwnerNewRequest(PurchaseRequest request) {
-        String offer = request.getPrice() != null
-                ? "R " + String.format("%,.2f", request.getPrice()) : "the asking price";
         email.send(request.getSellerEmail(),
-                "New purchase request: " + request.getAnimalSummary(),
+                "New Purchase Request: " + request.getAnimalSummary(),
                 "Hello" + namePart(request.getSellerName()) + ",\n\n"
-                + request.getBuyerName() + " (" + request.getBuyerEmail() + ") has requested to buy "
-                + request.getAnimalSummary() + " at " + offer + ".\n\n"
-                + "Sign in and open 'Purchase Requests' to approve or decline this request.\n\n"
-                + "Livestock Management System");
+                + "Good news! A buyer has submitted a purchase request for your animal listing.\n\n"
+                + "Purchase Details:\n"
+                + "- Animal: " + animalName(request) + "\n"
+                + "- Breed: " + valueOr(request.getBreed()) + "\n"
+                + "- Buyer: " + request.getBuyerName() + "\n"
+                + "- Buyer Email: " + request.getBuyerEmail() + "\n"
+                + "- Offered Price: " + priceText(request) + "\n"
+                + "- Request Date: " + dateText(request.getCreatedAt()) + "\n\n"
+                + "Please review the request and choose whether to approve or reject it. "
+                + "Sign in and open 'Purchase Requests' to respond.\n\n"
+                + "If approved, the buyer will be notified and can proceed with the purchase process.\n\n"
+                + "Thank you for using our Animal Marketplace.\n\n"
+                + "Best regards,\n"
+                + "Animal Marketplace Team");
     }
 
     private void notifyApproved(PurchaseRequest request) {
+        User owner = findUserByEmail(request.getSellerEmail());
+        StringBuilder body = new StringBuilder();
+        body.append("Hello").append(namePart(request.getBuyerName())).append(",\n\n")
+                .append("Congratulations!\n\n")
+                .append("Your purchase request for the following animal has been approved by the owner.\n\n")
+                .append("Animal Details:\n")
+                .append("- Animal: ").append(animalName(request)).append("\n")
+                .append("- Breed: ").append(valueOr(request.getBreed())).append("\n")
+                .append("- Price: ").append(priceText(request)).append("\n\n")
+                .append("The owner has accepted your request and will contact you shortly regarding the next steps.\n\n")
+                .append("Owner Contact Details:\n")
+                .append("- Name: ").append(ownerName(request, owner)).append("\n")
+                .append("- Email: ").append(valueOr(request.getSellerEmail())).append("\n");
+        if (owner != null && owner.getPhone() != null && !owner.getPhone().isBlank()) {
+            body.append("- Phone: ").append(owner.getPhone().trim()).append("\n");
+        }
+        body.append("\n")
+                .append("Thank you for using our Animal Marketplace.\n\n")
+                .append("Best regards,\n")
+                .append("Animal Marketplace Team");
         email.send(request.getBuyerEmail(),
-                "Purchase approved: " + request.getAnimalSummary(),
-                "Hello" + namePart(request.getBuyerName()) + ",\n\n"
-                + "Good news! Your request to buy " + request.getAnimalSummary()
-                + " has been approved by " + request.getResolvedBy() + ".\n\n"
-                + "Livestock Management System");
+                "Purchase Request Approved: " + request.getAnimalSummary(), body.toString());
         email.send(request.getSellerEmail(),
-                "Sale completed: " + request.getAnimalSummary(),
+                "Sale Completed: " + request.getAnimalSummary(),
                 "Hello" + namePart(request.getSellerName()) + ",\n\n"
-                + "The purchase request from " + request.getBuyerName() + " (" + request.getBuyerEmail()
-                + ") for " + request.getAnimalSummary() + " was approved"
+                + "This confirms that the purchase request below has been approved"
                 + (request.getResolvedBy() != null ? " by " + request.getResolvedBy() : "")
                 + ". The animal has been marked as sold.\n\n"
-                + "Livestock Management System");
+                + "Sale Details:\n"
+                + "- Animal: " + animalName(request) + "\n"
+                + "- Buyer: " + request.getBuyerName() + "\n"
+                + "- Buyer Email: " + request.getBuyerEmail() + "\n"
+                + "- Price: " + priceText(request) + "\n\n"
+                + "The buyer has been notified and has received your contact details "
+                + "to arrange the next steps.\n\n"
+                + "Thank you for using our Animal Marketplace.\n\n"
+                + "Best regards,\n"
+                + "Animal Marketplace Team");
     }
 
     private void notifyBuyerDeclined(PurchaseRequest request) {
         email.send(request.getBuyerEmail(),
-                "Purchase request declined: " + request.getAnimalSummary(),
+                "Purchase Request Declined: " + request.getAnimalSummary(),
                 "Hello" + namePart(request.getBuyerName()) + ",\n\n"
-                + "Unfortunately your request to buy " + request.getAnimalSummary()
-                + " was declined" + (request.getResolvedBy() != null ? " by " + request.getResolvedBy() : "")
-                + ".\n\n"
-                + "Livestock Management System");
+                + "Thank you for your interest in purchasing the following animal:\n\n"
+                + "- Animal: " + animalName(request) + "\n"
+                + "- Breed: " + valueOr(request.getBreed()) + "\n\n"
+                + "Unfortunately, the owner has declined your purchase request.\n\n"
+                + "This may be because the animal is no longer available or the owner chose another buyer.\n\n"
+                + "We encourage you to browse other available listings on the platform.\n\n"
+                + "Thank you for using our Animal Marketplace.\n\n"
+                + "Best regards,\n"
+                + "Animal Marketplace Team");
+    }
+
+    private User findUserByEmail(String emailAddress) {
+        if (emailAddress == null || emailAddress.isBlank()) {
+            return null;
+        }
+        Pattern exact = Pattern.compile("^" + Pattern.quote(emailAddress.trim()) + "$", Pattern.CASE_INSENSITIVE);
+        return mongoTemplate.find(new Query(Criteria.where("email").regex(exact)), User.class)
+                .stream().findFirst().orElse(null);
+    }
+
+    private String ownerName(PurchaseRequest request, User owner) {
+        if (owner != null && owner.getName() != null && !owner.getName().isBlank()) {
+            return owner.getName().trim();
+        }
+        return valueOr(request.getSellerName());
+    }
+
+    private String animalName(PurchaseRequest request) {
+        String name = request.getAnimalSummary();
+        return name == null || name.isBlank() ? "Animal listing" : name;
+    }
+
+    private String valueOr(String value) {
+        return value == null || value.isBlank() ? "Not specified" : value.trim();
+    }
+
+    private String priceText(PurchaseRequest request) {
+        return request.getPrice() != null
+                ? "R" + String.format("%,.2f", request.getPrice()) : "Not specified";
+    }
+
+    private String dateText(Date date) {
+        if (date == null) {
+            return "Not specified";
+        }
+        return new java.text.SimpleDateFormat("dd MMM yyyy, HH:mm").format(date);
     }
 
     private String namePart(String name) {

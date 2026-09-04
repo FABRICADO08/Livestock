@@ -17,6 +17,8 @@ public class User {
 
     private String name;
 
+    private String phone;
+
     @Field("google_id")
     private String googleId;
 
@@ -50,6 +52,14 @@ public class User {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getGoogleId() {
