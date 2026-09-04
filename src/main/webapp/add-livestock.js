@@ -67,6 +67,9 @@ async function initializeAuth() {
                 return;
             }
             applyAuthState();
+            if (currentUser.role === 'ADMIN') {
+                await loadSellers();
+            }
             document.body.classList.add('auth-ready');
             document.querySelector('.page-content')?.removeAttribute('aria-hidden');
             return;
@@ -82,14 +85,50 @@ async function initializeAuth() {
 function applyAuthState() {
     const formHint = document.getElementById('form-user-hint');
     const submitBtn = document.getElementById('submit-btn');
+    const assignGroup = document.getElementById('assign-seller-group');
+
+    if (assignGroup) {
+        assignGroup.style.display = currentUser && currentUser.role === 'ADMIN' ? 'block' : 'none';
+    }
 
     if (currentUser) {
         const name = (currentUser.name && currentUser.name.trim()) || currentUser.email;
-        formHint.textContent = `New records will be created by: ${name} (${currentUser.role})`;
+        formHint.textContent = currentUser.role === 'ADMIN'
+            ? `Signed in as ${name} (ADMIN) - assign this animal to a seller below.`
+            : `New records will be created by: ${name} (${currentUser.role})`;
         submitBtn.disabled = false;
     } else {
         formHint.textContent = 'Sign in with Google to add records.';
         submitBtn.disabled = true;
+    }
+}
+
+async function loadSellers(selectedEmail) {
+    const select = document.getElementById('owner-email');
+    if (!select) return;
+    try {
+        const response = await fetch('/api/auth/sellers');
+        if (!response.ok) throw new Error('Could not load sellers');
+        const sellers = await response.json();
+
+        select.innerHTML = '';
+        if (sellers.length === 0) {
+            select.innerHTML = '<option value="" selected disabled>No sellers available - a USER must sign in first</option>';
+            return;
+        }
+        select.innerHTML = '<option value="" selected disabled>Choose a seller...</option>';
+        sellers.forEach(seller => {
+            const option = document.createElement('option');
+            option.value = seller.email;
+            option.textContent = seller.name && seller.name.trim()
+                ? `${seller.name} (${seller.email})`
+                : seller.email;
+            select.appendChild(option);
+        });
+        if (selectedEmail) select.value = selectedEmail;
+    } catch (error) {
+        select.innerHTML = '<option value="" selected disabled>Could not load sellers</option>';
+        console.error('Seller load error:', error);
     }
 }
 
@@ -170,6 +209,7 @@ async function loadAnimalForEdit() {
         document.getElementById('age').value = animal.age;
         document.getElementById('weight').value = animal.weight;
         document.getElementById('health-status').value = animal.health_status;
+        document.getElementById('status').value = animal.status || 'ACTIVE';
         document.getElementById('date-of-birth').value = animal.date_of_birth || '';
         syncAgeWithDob(false);
         document.getElementById('acquisition-date').value = animal.acquisition_date || '';
@@ -180,6 +220,20 @@ async function loadAnimalForEdit() {
         document.getElementById('price').value = animal.price ?? '';
         document.getElementById('for-sale').checked = animal.for_sale !== false;
         document.getElementById('notes').value = animal.notes || '';
+
+        // Preselect the current owner in the admin seller dropdown
+        if (currentUser && currentUser.role === 'ADMIN' && animal.created_by_email) {
+            const select = document.getElementById('owner-email');
+            if (select && !Array.from(select.options).some(o => o.value === animal.created_by_email)) {
+                const option = document.createElement('option');
+                option.value = animal.created_by_email;
+                option.textContent = animal.created_by
+                    ? `${animal.created_by} (${animal.created_by_email})`
+                    : animal.created_by_email;
+                select.appendChild(option);
+            }
+            if (select) select.value = animal.created_by_email;
+        }
 
         document.getElementById('form-title').textContent = 'Edit Livestock';
         document.getElementById('submit-btn').textContent = 'Update Livestock';
@@ -201,7 +255,8 @@ function canModifyAnimal(animal) {
 async function isIdTagTaken(idTag, excludeId) {
     if (!idTag) return false;
     try {
-        const response = await fetch('/api/livestock/?page=0&limit=50');
+        // Check across all statuses (active, sold and dead) so tags stay unique
+        const response = await fetch('/api/livestock/?status=ALL&page=0&limit=100');
         if (!response.ok) return false;
         const animals = await response.json();
         const normalized = idTag.trim().toLowerCase();
@@ -234,6 +289,16 @@ async function handleFormSubmit(e) {
         return;
     }
 
+    // Admins must assign new animals to a seller
+    let ownerEmail = null;
+    if (currentUser.role === 'ADMIN') {
+        ownerEmail = document.getElementById('owner-email')?.value || '';
+        if (!ownerEmail) {
+            showAlert('Please choose the seller this animal belongs to', 'warning');
+            return;
+        }
+    }
+
     const priceValue = document.getElementById('price').value;
     const animal = {
         species: document.getElementById('species').value,
@@ -241,6 +306,7 @@ async function handleFormSubmit(e) {
         age: parseInt(document.getElementById('age').value),
         weight: parseFloat(document.getElementById('weight').value),
         health_status: document.getElementById('health-status').value,
+        status: document.getElementById('status').value,
         gender: document.getElementById('gender').value,
         classification: document.getElementById('classification').value,
         date_of_birth: document.getElementById('date-of-birth').value,
@@ -253,6 +319,7 @@ async function handleFormSubmit(e) {
         for_sale: document.getElementById('for-sale').checked,
         notes: document.getElementById('notes').value
     };
+    if (ownerEmail) animal.owner_email = ownerEmail;
 
     try {
         const response = await fetch(endpoint, {

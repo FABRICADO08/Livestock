@@ -85,6 +85,18 @@ public class Livestock {
     @Field("price")
     private Double price;
 
+    // Lifecycle status: ACTIVE (default), SOLD or DEAD. SOLD/DEAD are excluded
+    // from the main animal lists.
+    @JsonAlias("status")
+    @Field("status")
+    private String status = "ACTIVE";
+
+    // Transient input used by admins to assign a record to a seller (USER) on
+    // create/update. Never persisted - ownership is stored via created_by_email.
+    @JsonProperty("owner_email")
+    @org.springframework.data.annotation.Transient
+    private String ownerEmail;
+
     public String getId() {
         return id;
     }
@@ -275,5 +287,21 @@ public class Livestock {
 
     public void setPrice(Double price) {
         this.price = price;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getOwnerEmail() {
+        return ownerEmail;
+    }
+
+    public void setOwnerEmail(String ownerEmail) {
+        this.ownerEmail = ownerEmail;
     }
 }
