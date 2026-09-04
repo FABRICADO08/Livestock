@@ -86,12 +86,16 @@ async function initializeAuth() {
                 renderDashboard();
                 switchView('dashboard');
             }
+            document.body.classList.add('auth-ready');
+            document.querySelector('.app-shell')?.removeAttribute('aria-hidden');
             return;
         }
-        window.location.href = '/signin.html';
+        window.location.replace('/signin.html');
     } catch (error) {
         console.error('Auth initialization error:', error);
-        showAlert('Could not initialize authentication', 'danger');
+        // Could not verify the session - send the user to sign in instead of
+        // leaving the dashboard visible
+        window.location.replace('/signin.html');
     }
 }
 

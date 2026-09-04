@@ -12,7 +12,7 @@ async function initializeSignIn() {
         ]);
 
         if (sessionResponse.ok) {
-            window.location.href = '/landing.html';
+            window.location.replace('/landing.html');
             return;
         }
 
@@ -78,7 +78,7 @@ async function handleGoogleCredentialResponse(googleResponse) {
             throw new Error(error.error || 'Authentication failed');
         }
 
-        window.location.href = '/index.html';
+        window.location.replace('/index.html');
     } catch (error) {
         console.error('Sign-in error:', error);
         showAlert('Sign-in failed: ' + error.message, 'danger');
