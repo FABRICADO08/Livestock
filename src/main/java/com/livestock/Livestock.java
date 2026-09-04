@@ -61,6 +61,14 @@ public class Livestock {
     @Field("updated_by")
     private String updatedBy;
 
+    @JsonAlias("created_by_email")
+    @Field("created_by_email")
+    private String createdByEmail;
+
+    @JsonAlias("updated_by_email")
+    @Field("updated_by_email")
+    private String updatedByEmail;
+
     @JsonAlias("created_at")
     @Field("created_at")
     private Date createdAt;
@@ -68,6 +76,14 @@ public class Livestock {
     @JsonAlias("updated_at")
     @Field("updated_at")
     private Date updatedAt;
+
+    @JsonProperty("for_sale")
+    @Field("for_sale")
+    private Boolean forSale = Boolean.TRUE;
+
+    @JsonProperty("price")
+    @Field("price")
+    private Double price;
 
     public String getId() {
         return id;
@@ -213,6 +229,22 @@ public class Livestock {
         this.updatedBy = updatedBy;
     }
 
+    public String getCreatedByEmail() {
+        return createdByEmail;
+    }
+
+    public void setCreatedByEmail(String createdByEmail) {
+        this.createdByEmail = createdByEmail;
+    }
+
+    public String getUpdatedByEmail() {
+        return updatedByEmail;
+    }
+
+    public void setUpdatedByEmail(String updatedByEmail) {
+        this.updatedByEmail = updatedByEmail;
+    }
+
     public Date getCreatedAt() {
         return createdAt;
     }
@@ -227,5 +259,21 @@ public class Livestock {
 
     public void setUpdatedAt(Date updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Boolean getForSale() {
+        return forSale;
+    }
+
+    public void setForSale(Boolean forSale) {
+        this.forSale = forSale;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
     }
 }

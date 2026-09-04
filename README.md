@@ -9,8 +9,11 @@ A responsive web application for managing livestock records with MongoDB persist
 - Role-based permissions:
   - `ADMIN`: full access, user management, edit/delete any record
   - `USER`: create/view all, edit/delete own records only
-- Audit trail per record (`created_by`, `updated_by`, `created_at`, `updated_at`)
-- User collection with role and login tracking
+  - `BUYER`: customer role - browses the marketplace of livestock listed for sale, cannot create/edit/delete records
+- New sign-ins default to `USER`; admins can change a user's role to `BUYER` in User Management
+- Audit trail per record (`created_by`, `updated_by`, `created_at`, `updated_at`) - records store the owner's full name plus their email (`created_by_email`)
+- ID tags (`id_tag`) are unique - an animal cannot be saved with a tag already used by another record
+- User collection with name, role and login tracking
 - CRUD dashboard with search/filter/statistics
 
 ## Technology Stack
@@ -101,14 +104,16 @@ Render builds the Docker image from `DockerFile` (multi-stage Maven build, then 
 ## API Endpoints
 
 - `POST /api/auth/google` – authenticate with Google credential token
-- `GET /api/auth/session` – current logged-in user
+- `GET /api/auth/session` – current logged-in user (email, name, role, picture)
 - `POST /api/auth/logout` – logout
 - `GET /api/auth/users` – list users (ADMIN)
-- `PUT /api/auth/users/{email}` – update role (ADMIN)
+- `PUT /api/auth/users/{email}` – update role to ADMIN, USER or BUYER (ADMIN)
 - `GET /api/livestock/` – list livestock (supports `q`, `filter`, `sort`, `page`, `limit`)
-- `POST /api/livestock/` – create a record
-- `PUT /api/livestock/{id}` – update a record (owner or ADMIN)
+- `GET /api/livestock/marketplace` – livestock listed for sale (any signed-in user)
+- `POST /api/livestock/` – create a record (ADMIN/USER; `id_tag` must be unique)
+- `PUT /api/livestock/{id}` – update a record (owner or ADMIN; `id_tag` must stay unique)
 - `DELETE /api/livestock/{id}` – delete a record (owner or ADMIN)
 - `GET /api/livestock/stats` – dashboard statistics
+- `GET /api/pricing/suggestions?species=` – suggested asking price based on existing listings
 
 Record IDs are MongoDB ObjectId strings.

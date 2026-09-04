@@ -43,6 +43,40 @@ public class LivestockController {
         this.auth = auth;
     }
 
+    private String displayName(String email) {
+        if (email == null || email.isBlank()) {
+            return email;
+        }
+        Pattern exact = Pattern.compile("^" + Pattern.quote(email.trim()) + "$", Pattern.CASE_INSENSITIVE);
+        return mongoTemplate.find(new Query(Criteria.where("email").regex(exact)), User.class).stream()
+                .map(User::getName)
+                .filter(n -> n != null && !n.isBlank())
+                .findFirst()
+                .orElse(email);
+    }
+
+    private void ensureIdTagAvailable(String idTag, String excludeId) {
+        if (idTag == null || idTag.isBlank()) {
+            return;
+        }
+        String normalized = idTag.trim();
+        boolean taken = livestockRepository.findAll().stream()
+                .anyMatch(a -> a.getIdTag() != null
+                        && a.getIdTag().trim().equalsIgnoreCase(normalized)
+                        && (excludeId == null || !excludeId.equals(a.getId())));
+        if (taken) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "An animal with ID tag '" + normalized + "' already exists. ID tags must be unique.");
+        }
+    }
+
+    private void requireNonBuyer(HttpSession session) {
+        String role = auth.currentUserRole(session);
+        if ("BUYER".equalsIgnoreCase(role)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Buyers cannot manage livestock records");
+        }
+    }
+
     @GetMapping({"", "/"})
     public List<Map<String, Object>> list(@RequestParam(name = "q", required = false) String q,
                                           @RequestParam(name = "filter", required = false) String filter,
@@ -79,6 +113,16 @@ public class LivestockController {
         return all.subList(from, to).stream().map(this::toJson).collect(Collectors.toList());
     }
 
+    @GetMapping("/marketplace")
+    public List<Map<String, Object>> marketplace(HttpSession session) {
+        auth.requireEmail(session);
+        Query query = new Query();
+        query.addCriteria(Criteria.where("for_sale").ne(Boolean.FALSE));
+        return mongoTemplate.find(query, Livestock.class).stream()
+                .map(this::toJson)
+                .collect(Collectors.toList());
+    }
+
     @GetMapping("/stats")
     public Map<String, Object> stats(HttpSession session) {
         auth.requireEmail(session);
@@ -103,18 +147,23 @@ public class LivestockController {
     @PostMapping({"", "/"})
     public Map<String, Object> create(@RequestBody Livestock animal, HttpSession session) {
         String email = auth.requireEmail(session);
+        requireNonBuyer(session);
 
         Integer computedAge = calculateAgeFromDateOfBirth(animal.getDateOfBirth());
         if (computedAge == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Date of birth is required in YYYY-MM-DD format and cannot be in the future");
         }
+        ensureIdTagAvailable(animal.getIdTag(), null);
 
+        String displayName = displayName(email);
         Date now = new Date();
         animal.setId(null);
         animal.setAge(computedAge);
-        animal.setCreatedBy(email);
-        animal.setUpdatedBy(email);
+        animal.setCreatedBy(displayName);
+        animal.setUpdatedBy(displayName);
+        animal.setCreatedByEmail(email);
+        animal.setUpdatedByEmail(email);
         animal.setRegistrationDate(now);
         animal.setCreatedAt(now);
         animal.setUpdatedAt(now);
@@ -126,13 +175,15 @@ public class LivestockController {
     @PutMapping("/{id}")
     public Map<String, Object> update(@PathVariable("id") String id, @RequestBody Livestock animal, HttpSession session) {
         String email = auth.requireEmail(session);
-        Livestock existing = requireOwnedRecord(id, session, email, "edit");
+        requireNonBuyer(session);
+        Livestock existing = requireOwnedRecord(id, session, email);
 
         Integer computedAge = calculateAgeFromDateOfBirth(animal.getDateOfBirth());
         if (computedAge == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Date of birth is required in YYYY-MM-DD format and cannot be in the future");
         }
+        ensureIdTagAvailable(animal.getIdTag(), existing.getId());
 
         existing.setSpecies(animal.getSpecies());
         existing.setBreed(animal.getBreed());
@@ -148,7 +199,12 @@ public class LivestockController {
         existing.setLocation(animal.getLocation());
         existing.setIdTag(animal.getIdTag());
         existing.setNotes(animal.getNotes());
-        existing.setUpdatedBy(email);
+        if (animal.getForSale() != null) {
+            existing.setForSale(animal.getForSale());
+        }
+        existing.setPrice(animal.getPrice());
+        existing.setUpdatedBy(displayName(email));
+        existing.setUpdatedByEmail(email);
         existing.setUpdatedAt(new Date());
         livestockRepository.save(existing);
 
@@ -158,21 +214,23 @@ public class LivestockController {
     @DeleteMapping("/{id}")
     public Map<String, Object> delete(@PathVariable("id") String id, HttpSession session) {
         String email = auth.requireEmail(session);
-        Livestock existing = requireOwnedRecord(id, session, email, "delete");
+        requireNonBuyer(session);
+        Livestock existing = requireOwnedRecord(id, session, email);
         livestockRepository.delete(existing);
         return success("Record deleted successfully", HttpStatus.OK.value());
     }
 
-    private Livestock requireOwnedRecord(String id, HttpSession session, String email, String action) {
+    private Livestock requireOwnedRecord(String id, HttpSession session, String email) {
         Optional<Livestock> found = livestockRepository.findById(id);
         if (found.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Record not found");
         }
         Livestock existing = found.get();
         String role = auth.currentUserRole(session);
+        String ownerEmail = existing.getCreatedByEmail() != null ? existing.getCreatedByEmail() : existing.getCreatedBy();
         if (!"ADMIN".equalsIgnoreCase(role)
-                && (existing.getCreatedBy() == null || !email.equalsIgnoreCase(existing.getCreatedBy()))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only " + action + " your own records");
+                && (ownerEmail == null || !email.equalsIgnoreCase(ownerEmail))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only modify your own records");
         }
         return existing;
     }
@@ -235,8 +293,12 @@ public class LivestockController {
         json.put("notes", a.getNotes());
         json.put("created_by", a.getCreatedBy());
         json.put("updated_by", a.getUpdatedBy());
+        json.put("created_by_email", a.getCreatedByEmail());
+        json.put("updated_by_email", a.getUpdatedByEmail());
         json.put("created_at", a.getCreatedAt());
         json.put("updated_at", a.getUpdatedAt());
+        json.put("for_sale", a.getForSale() == null || a.getForSale());
+        json.put("price", a.getPrice());
         return json;
     }
 }

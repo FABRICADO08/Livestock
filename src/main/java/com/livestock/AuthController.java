@@ -47,12 +47,16 @@ public class AuthController {
         String role = resolveRoleFromDatabase(email, auth.currentUserRole(session));
         session.setAttribute("userRole", role);
         String picture = (String) session.getAttribute("userPicture");
+        String name = (String) session.getAttribute("userName");
 
         Map<String, String> body = new HashMap<>();
         body.put("email", email);
         body.put("role", role);
         if (picture != null && !picture.isBlank()) {
             body.put("picture", picture);
+        }
+        if (name != null && !name.isBlank()) {
+            body.put("name", name);
         }
         return body;
     }
@@ -79,6 +83,7 @@ public class AuthController {
                     Map<String, Object> json = new HashMap<>();
                     json.put("id", u.getId());
                     json.put("email", u.getEmail());
+                    json.put("name", u.getName());
                     json.put("role", u.getRole());
                     json.put("created_at", u.getCreatedAt());
                     json.put("last_login", u.getLastLogin());
@@ -104,17 +109,21 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google token");
         }
 
-        String role = upsertUserAndResolveRole(tokenInfo.email, tokenInfo.sub);
+        String role = upsertUserAndResolveRole(tokenInfo.email, tokenInfo.sub, tokenInfo.name);
 
         session.setAttribute("userEmail", tokenInfo.email);
         session.setAttribute("userRole", role);
         session.setAttribute("userPicture", tokenInfo.picture);
+        session.setAttribute("userName", tokenInfo.name);
 
         Map<String, String> body = new HashMap<>();
         body.put("email", tokenInfo.email);
         body.put("role", role);
         if (tokenInfo.picture != null && !tokenInfo.picture.isBlank()) {
             body.put("picture", tokenInfo.picture);
+        }
+        if (tokenInfo.name != null && !tokenInfo.name.isBlank()) {
+            body.put("name", tokenInfo.name);
         }
         return body;
     }
@@ -138,8 +147,8 @@ public class AuthController {
 
         String role = input.getOrDefault("role", "");
         role = role == null ? "" : role.trim().toUpperCase();
-        if (!"ADMIN".equals(role) && !"USER".equals(role)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role must be ADMIN or USER");
+        if (!auth.isValidRole(role)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role must be ADMIN, USER or BUYER");
         }
 
         Optional<User> user = findByEmail(email);
@@ -169,6 +178,7 @@ public class AuthController {
             String verified = obj.has("email_verified") ? obj.get("email_verified").getAsString() : "false";
             String sub = obj.has("sub") ? obj.get("sub").getAsString() : null;
             String picture = obj.has("picture") ? obj.get("picture").getAsString() : null;
+            String name = obj.has("name") ? obj.get("name").getAsString() : null;
 
             if (!expectedAudience.equals(aud) || !"true".equalsIgnoreCase(verified)) {
                 return null;
@@ -178,6 +188,7 @@ public class AuthController {
             info.email = email;
             info.sub = sub;
             info.picture = picture;
+            info.name = name;
             return info;
         } catch (Exception e) {
             System.err.println("Google token validation failed: " + e.getMessage());
@@ -185,7 +196,7 @@ public class AuthController {
         }
     }
 
-    private String upsertUserAndResolveRole(String email, String googleId) {
+    private String upsertUserAndResolveRole(String email, String googleId, String name) {
         boolean isAdminEmail = isAdminEmail(email);
         Date now = new Date();
 
@@ -197,6 +208,9 @@ public class AuthController {
             if (user.getGoogleId() == null || user.getGoogleId().isBlank()) {
                 user.setGoogleId(googleId);
             }
+            if (name != null && !name.isBlank()) {
+                user.setName(name);
+            }
             user.setLastLogin(now);
             userRepository.save(user);
             return roleToUse;
@@ -204,6 +218,7 @@ public class AuthController {
 
         User user = new User();
         user.setEmail(email);
+        user.setName(name);
         user.setGoogleId(googleId);
         user.setRole(isAdminEmail ? "ADMIN" : "USER");
         user.setCreatedAt(now);
@@ -245,5 +260,6 @@ public class AuthController {
         String email;
         String sub;
         String picture;
+        String name;
     }
 }
