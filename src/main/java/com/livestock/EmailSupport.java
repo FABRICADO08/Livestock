@@ -15,6 +15,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class EmailSupport {
 
+    /** Default sender for all marketplace notification emails. */
+    private static final String DEFAULT_FROM = "not-reply.livestockmanegemnt@gmail.com";
+
     private final AuthSupport auth;
     private final JavaMailSender mailSender;
     private final String fromAddress;
@@ -46,8 +49,7 @@ public class EmailSupport {
             props.put("mail.smtp.starttls.enable", "true");
             this.mailSender = sender;
         }
-        this.fromAddress = firstNonBlank(fromAddress, auth.getConfigValue("MAIL_FROM"),
-                firstNonBlank(mailUsername, auth.getConfigValue("MAIL_USERNAME")));
+        this.fromAddress = firstNonBlank(fromAddress, auth.getConfigValue("MAIL_FROM"), DEFAULT_FROM);
     }
 
     public boolean isEnabled() {
@@ -61,9 +63,7 @@ public class EmailSupport {
         }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            if (fromAddress != null) {
-                message.setFrom(fromAddress);
-            }
+            message.setFrom("Animal Marketplace <" + fromAddress + ">");
             message.setTo(to.trim());
             message.setSubject(subject);
             message.setText(text);
