@@ -38,6 +38,7 @@ function setupEventListeners() {
     const speciesSelect = document.getElementById('species');
     const genderSelect = document.getElementById('gender');
     const dobInput = document.getElementById('date-of-birth');
+    const cancelBtn = document.getElementById('cancel-btn');
 
     form.addEventListener('submit', handleFormSubmit);
     speciesSelect.addEventListener('change', updateBreedAndClassification);
@@ -45,6 +46,28 @@ function setupEventListeners() {
     if (dobInput) {
         dobInput.addEventListener('change', () => syncAgeWithDob(false));
     }
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            closePage();
+        });
+    }
+}
+
+// Closes the current page after a completed action; browsers only allow
+// window.close() for script-opened windows, so fall back to going back or
+// returning to the dashboard when the close is ignored.
+function closePage() {
+    window.close();
+    setTimeout(() => {
+        if (!window.closed) {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.replace('/index.html');
+            }
+        }
+    }, 200);
 }
 
 async function initializeAuth() {
@@ -335,7 +358,7 @@ async function handleFormSubmit(e) {
             throw new Error(error.error || 'Save failed');
         }
 
-        window.location.href = `/index.html?saved=1`;
+        closePage();
     } catch (error) {
         showAlert('Error saving record: ' + error.message, 'danger');
     }

@@ -819,6 +819,7 @@ async function resolvePurchaseRequest(id, approve) {
         showAlert(result.message || (approve ? 'Purchase approved' : 'Purchase request declined'), 'success');
         await loadPurchaseRequests();
         await loadLivestock();
+        if (approve) closePage();
     } catch (error) {
         showAlert(error.message, 'danger');
     }
@@ -1112,6 +1113,7 @@ async function cancelPurchaseRequest(id) {
         showAlert(result.message || 'Purchase request cancelled', 'success');
         await loadMyPurchases();
         await loadMarketplace();
+        closePage();
     } catch (error) {
         showAlert(error.message, 'danger');
     }
@@ -1188,6 +1190,7 @@ async function updateUserRole(encodedEmail, id) {
 
         showAlert(`Role updated for ${email}`, 'success');
         loadUsers();
+        closePage();
     } catch (error) {
         showAlert('Error updating role: ' + error.message, 'danger');
     }
@@ -1208,6 +1211,22 @@ function checkSaveSuccess() {
 function formatPrice(price) {
     if (price === null || price === undefined || price === '') return 'N/A';
     return `R ${Number(price).toLocaleString()}`;
+}
+
+// Closes the current page after a completed action; browsers only allow
+// window.close() for script-opened windows, so fall back to going back or
+// returning to the dashboard when the close is ignored.
+function closePage() {
+    window.close();
+    setTimeout(() => {
+        if (!window.closed) {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.replace('/index.html');
+            }
+        }
+    }, 200);
 }
 
 function round1(value) {
