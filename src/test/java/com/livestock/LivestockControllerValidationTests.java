@@ -31,6 +31,9 @@ class LivestockControllerValidationTests {
     private LivestockRepository livestockRepository;
 
     @MockBean
+    private UserRepository userRepository;
+
+    @MockBean
     private MongoTemplate mongoTemplate;
 
     @MockBean
@@ -203,5 +206,103 @@ class LivestockControllerValidationTests {
                         .content(body))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error", is("Buyers cannot manage livestock records")));
+    }
+
+    @Test
+    void createByAdminRequiresSellerAssignment() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        when(auth.requireEmail(session)).thenReturn("admin@example.com");
+        when(auth.currentUserRole(session)).thenReturn("ADMIN");
+
+        String body = "{\"species\":\"Cattle\",\"date_of_birth\":\"2020-01-15\"}";
+
+        mockMvc.perform(post("/api/livestock/")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error",
+                        is("Admins must assign the animal to a seller (owner_email is required)")));
+    }
+
+    @Test
+    void createByAdminAssignsAnimalToSeller() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        when(auth.requireEmail(session)).thenReturn("admin@example.com");
+        when(auth.currentUserRole(session)).thenReturn("ADMIN");
+
+        User seller = new User();
+        seller.setId("u1");
+        seller.setEmail("seller@example.com");
+        seller.setName("Sam Seller");
+        seller.setRole("USER");
+        when(userRepository.findAll()).thenReturn(java.util.List.of(seller));
+        when(auth.normalizeRole("USER")).thenReturn("USER");
+        when(livestockRepository.save(any(Livestock.class))).thenAnswer(invocation -> {
+            Livestock saved = invocation.getArgument(0);
+            saved.setId("abc123");
+            return saved;
+        });
+
+        String body = "{"
+                + "\"species\":\"Cattle\","
+                + "\"breed\":\"Angus\","
+                + "\"date_of_birth\":\"2020-01-15\","
+                + "\"owner_email\":\"seller@example.com\""
+                + "}";
+
+        mockMvc.perform(post("/api/livestock/")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("success")));
+
+        ArgumentCaptor<Livestock> captor = ArgumentCaptor.forClass(Livestock.class);
+        verify(livestockRepository).save(captor.capture());
+        Livestock saved = captor.getValue();
+        org.assertj.core.api.Assertions.assertThat(saved.getCreatedByEmail()).isEqualTo("seller@example.com");
+        org.assertj.core.api.Assertions.assertThat(saved.getCreatedBy()).isEqualTo("Sam Seller");
+        org.assertj.core.api.Assertions.assertThat(saved.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void getByIdIncludesStatusInResponse() throws Exception {
+        MockHttpSession session = sessionAs("user@example.com");
+
+        Livestock existing = new Livestock();
+        existing.setId("abc123");
+        existing.setSpecies("Cattle");
+        existing.setStatus("SOLD");
+        when(livestockRepository.findById("abc123")).thenReturn(Optional.of(existing));
+
+        mockMvc.perform(get("/api/livestock/abc123").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("SOLD")));
+    }
+
+    @Test
+    void updatePersistsStatusChange() throws Exception {
+        MockHttpSession session = sessionAs("user@example.com");
+
+        Livestock existing = new Livestock();
+        existing.setId("abc123");
+        existing.setCreatedByEmail("user@example.com");
+        existing.setStatus("ACTIVE");
+        when(livestockRepository.findById("abc123")).thenReturn(Optional.of(existing));
+        when(livestockRepository.save(any(Livestock.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        String body = "{\"species\":\"Cattle\",\"date_of_birth\":\"2020-01-15\",\"status\":\"SOLD\"}";
+
+        mockMvc.perform(put("/api/livestock/abc123")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("success")));
+
+        ArgumentCaptor<Livestock> captor = ArgumentCaptor.forClass(Livestock.class);
+        verify(livestockRepository).save(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getStatus()).isEqualTo("SOLD");
     }
 }
