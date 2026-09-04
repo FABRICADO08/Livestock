@@ -7,6 +7,8 @@ let cachedAnimals = [];
 let cachedSoldAnimals = [];
 let cachedDeadAnimals = [];
 let cachedMarketplace = [];
+let cachedPurchaseRequests = [];
+let cachedMyPurchases = [];
 let currentView = 'dashboard';
 let pendingBuyId = null;
 
@@ -69,6 +71,11 @@ function setupEventListeners() {
     if (settingsSuggest) settingsSuggest.addEventListener('click', suggestPriceFromSettings);
 
     document.getElementById('confirm-buy-btn').addEventListener('click', confirmBuy);
+
+    const requestsRefresh = document.getElementById('requests-refresh');
+    if (requestsRefresh) requestsRefresh.addEventListener('click', loadPurchaseRequests);
+    const purchasesRefresh = document.getElementById('purchases-refresh');
+    if (purchasesRefresh) purchasesRefresh.addEventListener('click', loadMyPurchases);
 
     // Auto-close the drawer when resizing from phone/tablet up to desktop
     window.addEventListener('resize', () => {
@@ -182,10 +189,11 @@ const VIEW_TITLES = {
     marketplace: ['Marketplace', 'Browse livestock available for sale'],
     users: ['Users', 'Manage user accounts and roles'],
     sales: ['Sales', 'Livestock currently listed for sale'],
+    requests: ['Purchase Requests', 'Approve or decline buyer purchase requests'],
     health: ['Health Records', 'Health and vaccination status of your herd'],
     reports: ['Reports', 'Reports and analytics'],
     settings: ['Settings', 'Application settings'],
-    purchases: ['My Purchases', 'Your purchased livestock']
+    purchases: ['My Purchases', 'Your purchase requests and their approval status']
 };
 
 function switchView(view) {
@@ -215,6 +223,7 @@ function switchView(view) {
     if (view === 'sold') loadSoldAnimals();
     if (view === 'dead') loadDeadAnimals();
     if (view === 'sales') loadLivestock().then(renderSales);
+    if (view === 'requests') loadPurchaseRequests();
     if (view === 'health') loadLivestock().then(renderHealth);
     if (view === 'reports') loadLivestock().then(renderReports);
     if (view === 'settings') renderSettings();
@@ -644,6 +653,20 @@ function renderMarketplace() {
             : `<span class="badge bg-danger">${animal.health_status || 'Not Healthy'}</span>`;
         const displayAge = calculateAgeFromDateOfBirth(animal.date_of_birth);
 
+        // Hide the Buy button once a purchase request is pending: the buyer
+        // who made it sees that they are waiting for approval, and everyone
+        // else sees that a purchase is already in progress.
+        let buyControl;
+        if (animal.pending_request && animal.pending_request_mine) {
+            buyControl = '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Waiting for approval</span>';
+        } else if (animal.pending_request) {
+            buyControl = `<span class="badge bg-secondary"><i class="bi bi-lock"></i> Purchase pending${animal.pending_buyer ? ` by ${animal.pending_buyer}` : ''}</span>`;
+        } else {
+            buyControl = `<button class="btn btn-sm btn-success action-btn" data-action="buy" data-id="${animal.id}" title="Buy">
+                    <i class="bi bi-bag-check"></i> Buy
+                </button>`;
+        }
+
         row.innerHTML = `
             <td data-label="ID Tag">${animal.id_tag || animal.id}</td>
             <td data-label="Species"><strong>${animal.species}</strong></td>
@@ -658,9 +681,7 @@ function renderMarketplace() {
                 <button class="btn btn-sm btn-info action-btn" data-action="view" data-id="${animal.id}" title="View">
                     <i class="bi bi-eye"></i>
                 </button>
-                <button class="btn btn-sm btn-success action-btn" data-action="buy" data-id="${animal.id}" title="Buy">
-                    <i class="bi bi-bag-check"></i> Buy
-                </button>
+                ${buyControl}
             </td>
         `;
         tableBody.appendChild(row);
@@ -708,12 +729,99 @@ async function openBuyModal(id) {
     }
 }
 
-function confirmBuy() {
+async function confirmBuy() {
     if (!pendingBuyId) return;
+    const id = pendingBuyId;
     const price = document.getElementById('buy-price').value;
-    bootstrap.Modal.getInstance(document.getElementById('buyModal'))?.hide();
-    showAlert(`Purchase request submitted${price ? ` at R ${Number(price).toLocaleString()}` : ''}. The seller will be notified to complete the sale.`, 'success');
-    pendingBuyId = null;
+
+    const confirmBtn = document.getElementById('confirm-buy-btn');
+    confirmBtn.disabled = true;
+    try {
+        const response = await fetch('/api/purchases', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ livestock_id: id, price: price === '' ? null : Number(price) })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to submit purchase request');
+        }
+        bootstrap.Modal.getInstance(document.getElementById('buyModal'))?.hide();
+        showAlert(`Purchase request submitted${price ? ` at R ${Number(price).toLocaleString()}` : ''}. Waiting for the seller's approval.`, 'success');
+        pendingBuyId = null;
+        await loadMarketplace();
+        if (currentView === 'purchases') await loadMyPurchases();
+    } catch (error) {
+        showAlert(error.message, 'danger');
+    } finally {
+        confirmBtn.disabled = false;
+    }
+}
+
+/* ---------------- Purchase Requests (SELLER/ADMIN) ---------------- */
+
+async function loadPurchaseRequests() {
+    if (!currentUser || currentUser.role === 'BUYER') return;
+    try {
+        const response = await fetch('/api/purchases/pending');
+        if (!response.ok) return;
+        cachedPurchaseRequests = await response.json();
+        renderPurchaseRequests();
+    } catch (error) {
+        console.error('Error loading purchase requests:', error);
+    }
+}
+
+function renderPurchaseRequests() {
+    const tableBody = document.getElementById('requests-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '';
+    if (cachedPurchaseRequests.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No purchase requests waiting for your approval.</td></tr>';
+        return;
+    }
+
+    cachedPurchaseRequests.forEach(request => {
+        const row = document.createElement('tr');
+        const requested = request.created_at ? new Date(request.created_at).toLocaleString() : '-';
+        row.innerHTML = `
+            <td data-label="Animal"><strong>${request.animal_summary || request.livestock_id}</strong></td>
+            <td data-label="Buyer">${request.buyer_name || request.buyer_email}</td>
+            <td data-label="Offer Price">${formatPrice(request.price)}</td>
+            <td data-label="Requested">${requested}</td>
+            <td data-label="Actions" class="table-actions actions-cell">
+                <button class="btn btn-sm btn-success action-btn" data-action="approve" data-id="${request.id}" title="Approve">
+                    <i class="bi bi-check-lg"></i> Approve
+                </button>
+                <button class="btn btn-sm btn-outline-danger action-btn" data-action="decline" data-id="${request.id}" title="Decline">
+                    <i class="bi bi-x-lg"></i> Decline
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    tableBody.querySelectorAll('[data-action="approve"]').forEach(btn =>
+        btn.addEventListener('click', () => resolvePurchaseRequest(btn.dataset.id, true)));
+    tableBody.querySelectorAll('[data-action="decline"]').forEach(btn =>
+        btn.addEventListener('click', () => resolvePurchaseRequest(btn.dataset.id, false)));
+}
+
+async function resolvePurchaseRequest(id, approve) {
+    if (!approve && !window.confirm('Decline this purchase request?')) return;
+    try {
+        const response = await fetch(`/api/purchases/${id}/${approve ? 'approve' : 'decline'}`, { method: 'PUT' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to update the purchase request');
+        }
+        showAlert(result.message || (approve ? 'Purchase approved' : 'Purchase request declined'), 'success');
+        await loadPurchaseRequests();
+        await loadLivestock();
+    } catch (error) {
+        showAlert(error.message, 'danger');
+    }
 }
 
 /* ---------------- Sales ---------------- */
@@ -912,11 +1020,89 @@ async function suggestPriceFromSettings() {
 /* ---------------- Purchases (BUYER) ---------------- */
 
 async function renderPurchases() {
-    if (cachedMarketplace.length === 0) {
-        await loadMarketplace();
-    }
+    await loadMyPurchases();
     updatePurchasePriceHint('purchases-price-cattle', 'Cattle');
     updatePurchasePriceHint('purchases-price-sheep', 'Sheep');
+}
+
+async function loadMyPurchases() {
+    if (!currentUser) return;
+    try {
+        const response = await fetch('/api/purchases/mine');
+        if (!response.ok) return;
+        cachedMyPurchases = await response.json();
+    } catch (error) {
+        console.error('Error loading my purchases:', error);
+        return;
+    }
+    renderMyPurchases();
+}
+
+function purchaseStatusBadge(status) {
+    switch ((status || '').toUpperCase()) {
+        case 'PENDING':
+            return '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Waiting for approval</span>';
+        case 'APPROVED':
+            return '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Approved</span>';
+        case 'DECLINED':
+            return '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> Declined</span>';
+        default:
+            return `<span class="badge bg-secondary">${status || 'Unknown'}</span>`;
+    }
+}
+
+function renderMyPurchases() {
+    const tableBody = document.getElementById('purchases-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '';
+    if (cachedMyPurchases.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">
+            You have not requested to buy any livestock yet.
+            <button class="btn btn-sm btn-success ms-2" data-goto-view="marketplace"><i class="bi bi-shop"></i> Browse Marketplace</button>
+        </td></tr>`;
+        tableBody.querySelectorAll('[data-goto-view]').forEach(item =>
+            item.addEventListener('click', () => switchView(item.dataset.gotoView)));
+        return;
+    }
+
+    cachedMyPurchases.forEach(request => {
+        const row = document.createElement('tr');
+        const requested = request.created_at ? new Date(request.created_at).toLocaleString() : '-';
+        const cancelBtn = (request.status || '').toUpperCase() === 'PENDING'
+            ? `<button class="btn btn-sm btn-outline-danger action-btn" data-action="cancel-request" data-id="${request.id}" title="Cancel request">
+                    <i class="bi bi-x-lg"></i> Cancel
+               </button>`
+            : '';
+        row.innerHTML = `
+            <td data-label="Animal"><strong>${request.animal_summary || request.livestock_id}</strong></td>
+            <td data-label="Seller">${request.seller_name || request.seller_email || 'N/A'}</td>
+            <td data-label="Offer Price">${formatPrice(request.price)}</td>
+            <td data-label="Status">${purchaseStatusBadge(request.status)}</td>
+            <td data-label="Requested">${requested}</td>
+            <td data-label="Actions" class="table-actions actions-cell">${cancelBtn}</td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    tableBody.querySelectorAll('[data-action="cancel-request"]').forEach(btn =>
+        btn.addEventListener('click', () => cancelPurchaseRequest(btn.dataset.id)));
+}
+
+async function cancelPurchaseRequest(id) {
+    if (!window.confirm('Cancel this purchase request?')) return;
+    try {
+        const response = await fetch(`/api/purchases/${id}/cancel`, { method: 'PUT' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to cancel the purchase request');
+        }
+        showAlert(result.message || 'Purchase request cancelled', 'success');
+        await loadMyPurchases();
+        await loadMarketplace();
+    } catch (error) {
+        showAlert(error.message, 'danger');
+    }
 }
 
 function updatePurchasePriceHint(elementId, species) {

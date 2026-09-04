@@ -7,6 +7,20 @@ spring:
     session:
       cookie:
         same-site: lax
+  mail:
+    # SMTP settings for purchase/owner notification emails. Set these as
+    # environment variables (e.g. on Render). When MAIL_HOST is unset, email
+    # sending is skipped silently.
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 server:
   port: ${PORT:8080}
