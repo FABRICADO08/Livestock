@@ -51,6 +51,11 @@ function setupEventListeners() {
     if (marketplaceRefresh) marketplaceRefresh.addEventListener('click', loadMarketplace);
 
     document.getElementById('confirm-buy-btn').addEventListener('click', confirmBuy);
+
+    // Auto-close the drawer when resizing from phone/tablet up to desktop
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 992) closeSidebar();
+    });
 }
 
 /* ---------------- Auth ---------------- */
