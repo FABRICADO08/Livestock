@@ -35,13 +35,16 @@ public class LivestockController {
 
     private final LivestockRepository livestockRepository;
     private final UserRepository userRepository;
+    private final PurchaseRequestRepository purchaseRepository;
     private final MongoTemplate mongoTemplate;
     private final AuthSupport auth;
 
     public LivestockController(LivestockRepository livestockRepository, UserRepository userRepository,
+                               PurchaseRequestRepository purchaseRepository,
                                MongoTemplate mongoTemplate, AuthSupport auth) {
         this.livestockRepository = livestockRepository;
         this.userRepository = userRepository;
+        this.purchaseRepository = purchaseRepository;
         this.mongoTemplate = mongoTemplate;
         this.auth = auth;
     }
@@ -152,12 +155,26 @@ public class LivestockController {
 
     @GetMapping("/marketplace")
     public List<Map<String, Object>> marketplace(HttpSession session) {
-        auth.requireEmail(session);
+        String email = auth.requireEmail(session);
         Query query = new Query();
         query.addCriteria(Criteria.where("for_sale").ne(Boolean.FALSE));
         return mongoTemplate.find(query, Livestock.class).stream()
                 .filter(this::isActive)
-                .map(this::toJson)
+                .map(animal -> {
+                    Map<String, Object> json = toJson(animal);
+                    // Surface pending purchase requests so the buyer who made
+                    // one sees "waiting for approval" and everyone else sees
+                    // that a purchase is already in progress.
+                    List<PurchaseRequest> pending = purchaseRepository
+                            .findByLivestockIdAndStatus(animal.getId(), PurchaseRequest.STATUS_PENDING);
+                    boolean pendingRequest = !pending.isEmpty();
+                    boolean ownRequest = email != null && pending.stream().anyMatch(r ->
+                            r.getBuyerEmail() != null && r.getBuyerEmail().equalsIgnoreCase(email));
+                    json.put("pending_request", pendingRequest);
+                    json.put("pending_request_mine", ownRequest);
+                    json.put("pending_buyer", pendingRequest ? pending.get(0).getBuyerName() : null);
+                    return json;
+                })
                 .collect(Collectors.toList());
     }
 

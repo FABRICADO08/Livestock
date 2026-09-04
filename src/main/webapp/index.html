@@ -50,6 +50,7 @@
                     <button class="nav-link-item" data-view="sold"><i class="bi bi-check2-circle"></i>Sold</button>
                     <button class="nav-link-item" data-view="dead"><i class="bi bi-x-octagon"></i>Dead</button>
                     <button class="nav-link-item" data-view="sales"><i class="bi bi-cart3"></i>Sales</button>
+                    <button class="nav-link-item" data-view="requests"><i class="bi bi-inbox"></i>Purchase Requests</button>
                     <button class="nav-link-item" data-view="health"><i class="bi bi-clipboard2-pulse"></i>Health Records</button>
                     <button class="nav-link-item" data-view="reports"><i class="bi bi-bar-chart"></i>Reports</button>
                     <button class="nav-link-item" data-view="users"><i class="bi bi-people"></i>Users</button>
@@ -63,6 +64,7 @@
                     <button class="nav-link-item" data-view="sold"><i class="bi bi-check2-circle"></i>Sold</button>
                     <button class="nav-link-item" data-view="dead"><i class="bi bi-x-octagon"></i>Dead</button>
                     <button class="nav-link-item" data-view="sales"><i class="bi bi-cart3"></i>Sales</button>
+                    <button class="nav-link-item" data-view="requests"><i class="bi bi-inbox"></i>Purchase Requests</button>
                     <button class="nav-link-item" data-view="health"><i class="bi bi-clipboard2-pulse"></i>Health Records</button>
                 </div>
 
@@ -603,14 +605,54 @@
                 </div>
             </section>
 
+            <!-- ===================== PURCHASE REQUESTS VIEW (SELLER/ADMIN) ===================== -->
+            <section id="view-requests" style="display:none">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <span>Pending Purchase Requests</span>
+                        <button class="btn btn-sm btn-outline-secondary" id="requests-refresh"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                    </div>
+                    <div class="panel-body">
+                        <div class="table-responsive-md">
+                            <table class="table table-hover mb-0 mobile-card-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Animal</th>
+                                        <th>Buyer</th>
+                                        <th>Offer Price</th>
+                                        <th>Requested</th>
+                                        <th class="table-actions text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="requests-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- ===================== PURCHASES VIEW (BUYER) ===================== -->
             <section id="view-purchases" style="display:none">
                 <div class="panel-card">
+                    <div class="panel-header">
+                        <span>My Purchase Requests</span>
+                        <button class="btn btn-sm btn-outline-secondary" id="purchases-refresh"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                    </div>
                     <div class="panel-body">
-                        <div class="placeholder-panel">
-                            <i class="bi bi-bag-check"></i>
-                            <div>Animals you buy will be listed here once the sale is completed by the seller.</div>
-                            <button class="btn btn-success mt-2" data-goto-view="marketplace"><i class="bi bi-shop me-2"></i>Browse Marketplace</button>
+                        <div class="table-responsive-md">
+                            <table class="table table-hover mb-0 mobile-card-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Animal</th>
+                                        <th>Seller</th>
+                                        <th>Offer Price</th>
+                                        <th>Status</th>
+                                        <th>Requested</th>
+                                        <th class="table-actions text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="purchases-table-body"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
