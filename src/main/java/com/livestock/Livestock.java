@@ -1,5 +1,7 @@
 package com.livestock;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Date;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -16,43 +18,54 @@ public class Livestock {
     private Integer age;
     private Double weight;
 
+    @JsonProperty("health_status")
     @Field("health_status")
     private String healthStatus;
 
     private String gender;
     private String classification;
 
+    @JsonProperty("date_of_birth")
     @Field("date_of_birth")
     private String dateOfBirth;
 
+    @JsonProperty("acquisition_date")
     @Field("acquisition_date")
     private String acquisitionDate;
 
+    @JsonProperty("production_type")
     @Field("production_type")
     private String productionType;
 
+    @JsonProperty("vaccination_status")
     @Field("vaccination_status")
     private String vaccinationStatus;
 
     private String location;
 
+    @JsonProperty("id_tag")
     @Field("id_tag")
     private String idTag;
 
     private String notes;
 
+    @JsonProperty("registration_date")
     @Field("registration_date")
     private Date registrationDate;
 
+    @JsonAlias("created_by")
     @Field("created_by")
     private String createdBy;
 
+    @JsonAlias("updated_by")
     @Field("updated_by")
     private String updatedBy;
 
+    @JsonAlias("created_at")
     @Field("created_at")
     private Date createdAt;
 
+    @JsonAlias("updated_at")
     @Field("updated_at")
     private Date updatedAt;
 
