@@ -104,7 +104,7 @@ Render builds the Docker image from `DockerFile` (multi-stage Maven build, then 
 - `GOOGLE_CLIENT_ID` – Google OAuth client ID
 - `ADMIN_EMAILS` – comma-separated admin emails
 - `PORT` – injected automatically by Render
-- `MAIL_HOST`, `MAIL_PORT` (default 587), `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` – optional SMTP settings for owner/buyer notification emails; email sending is skipped when `MAIL_HOST` is not set
+- `MAIL_HOST`, `MAIL_PORT` (default 587), `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` – optional SMTP settings for owner/buyer notification emails; email sending is skipped when `MAIL_HOST` is not set. Emails are sent in the background and the SMTP connection is tested at startup: if the server is unreachable (e.g. Render free web services block outbound SMTP ports 25/465/587, so Gmail SMTP will time out), email notifications are disabled automatically with a single log line instead of failing on every email. To send email from Render, use an HTTP-based provider (SendGrid, Mailgun, Resend) or a paid instance with SMTP allowed.
 
 ## API Endpoints
 
