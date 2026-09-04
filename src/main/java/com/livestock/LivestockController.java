@@ -260,7 +260,13 @@ public class LivestockController {
             existing.setForSale(animal.getForSale());
         }
         existing.setPrice(animal.getPrice());
-        existing.setStatus(normalizeStatus(animal.getStatus()));
+        // Only change the lifecycle status when one was explicitly provided so a
+        // partial update never silently reactivates a Sold/Dead record
+        if (animal.getStatus() != null && !animal.getStatus().isBlank()) {
+            existing.setStatus(normalizeStatus(animal.getStatus()));
+        } else if (existing.getStatus() == null || existing.getStatus().isBlank()) {
+            existing.setStatus("ACTIVE");
+        }
 
         // An admin may reassign the record to a different seller (USER account)
         if ("ADMIN".equalsIgnoreCase(auth.currentUserRole(session))
