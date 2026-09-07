@@ -407,6 +407,7 @@ function showAlert(message, type) {
     closeButton.type = 'button';
     closeButton.className = 'btn-close';
     closeButton.setAttribute('data-bs-dismiss', 'alert');
+    closeButton.setAttribute('aria-label', 'Close');
     alertDiv.appendChild(closeButton);
 
     const container = document.querySelector('.container-xl') || document.querySelector('.container');
