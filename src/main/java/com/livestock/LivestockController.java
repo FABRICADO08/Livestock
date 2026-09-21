@@ -257,7 +257,12 @@ public class LivestockController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Date of birth is required in YYYY-MM-DD format and cannot be in the future");
         }
-        ensureIdTagAvailable(animal.getIdTag(), existing.getId());
+        boolean idTagChanged = animal.getIdTag() != null
+                && !animal.getIdTag().trim().equalsIgnoreCase(
+                        existing.getIdTag() == null ? "" : existing.getIdTag().trim());
+        if (idTagChanged) {
+            ensureIdTagAvailable(animal.getIdTag(), existing.getId());
+        }
 
         existing.setSpecies(animal.getSpecies());
         existing.setBreed(animal.getBreed());
