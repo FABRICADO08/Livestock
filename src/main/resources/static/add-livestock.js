@@ -26,6 +26,7 @@ const classificationBySpeciesAndGender = {
 
 let currentUser = null;
 let googleClientId = null;
+let originalIdTag = null;
 
 document.addEventListener('DOMContentLoaded', async function() {
     setupEventListeners();
@@ -240,6 +241,7 @@ async function loadAnimalForEdit() {
         document.getElementById('vaccination-status').value = animal.vaccination_status || '';
         document.getElementById('location').value = animal.location || '';
         document.getElementById('id-tag').value = animal.id_tag || '';
+        originalIdTag = animal.id_tag || '';
         document.getElementById('price').value = animal.price ?? '';
         document.getElementById('for-sale').checked = animal.for_sale !== false;
         document.getElementById('notes').value = animal.notes || '';
@@ -307,7 +309,9 @@ async function handleFormSubmit(e) {
     const endpoint = id ? `/api/livestock/${id}` : '/api/livestock/';
 
     const idTag = document.getElementById('id-tag').value.trim();
-    if (idTag && await isIdTagTaken(idTag, id)) {
+    const idTagUnchanged = id && originalIdTag
+        && idTag.toLowerCase() === originalIdTag.trim().toLowerCase();
+    if (idTag && !idTagUnchanged && await isIdTagTaken(idTag, id)) {
         showAlert(`An animal with ID tag '${idTag}' already exists. ID tags must be unique.`, 'danger');
         return;
     }
