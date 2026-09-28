@@ -406,12 +406,15 @@ function showAlert(message, type) {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
     alertDiv.role = 'alert';
-    alertDiv.appendChild(document.createTextNode(message));
+
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    alertDiv.appendChild(messageSpan);
+
     const closeButton = document.createElement('button');
     closeButton.type = 'button';
     closeButton.className = 'btn-close';
     closeButton.setAttribute('data-bs-dismiss', 'alert');
-    closeButton.setAttribute('aria-label', 'Close');
     alertDiv.appendChild(closeButton);
 
     const container = document.querySelector('.container-xl') || document.querySelector('.container');

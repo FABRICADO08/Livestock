@@ -406,7 +406,11 @@ function showAlert(message, type) {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
     alertDiv.role = 'alert';
-    alertDiv.appendChild(document.createTextNode(message));
+
+    const messageNode = document.createElement('span');
+    messageNode.textContent = message;
+    alertDiv.appendChild(messageNode);
+
     const closeButton = document.createElement('button');
     closeButton.type = 'button';
     closeButton.className = 'btn-close';
