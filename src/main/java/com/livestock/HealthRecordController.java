@@ -200,6 +200,10 @@ public class HealthRecordController {
 
     /** Whether a record counts for due/overdue vaccination reminders. */
     public static boolean isReminderCandidate(HealthRecord record) {
+        if (record.getType() == null
+                || !HealthRecord.TYPE_VACCINATION.equalsIgnoreCase(record.getType().trim())) {
+            return false;
+        }
         Integer days = daysUntilDue(record);
         return days != null && days <= REMINDER_WINDOW_DAYS;
     }

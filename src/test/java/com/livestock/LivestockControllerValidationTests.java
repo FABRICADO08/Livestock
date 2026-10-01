@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
@@ -44,6 +45,9 @@ class LivestockControllerValidationTests {
 
     @MockBean
     private MongoTemplate mongoTemplate;
+
+    @MockBean
+    private GridFsTemplate gridFsTemplate;
 
     @MockBean
     private AuthSupport auth;
@@ -80,7 +84,8 @@ class LivestockControllerValidationTests {
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("success")))
-                .andExpect(jsonPath("$.message", is("Record saved successfully")));
+                .andExpect(jsonPath("$.message", is("Record saved successfully")))
+                .andExpect(jsonPath("$.id", is("abc123")));
 
         ArgumentCaptor<Livestock> captor = ArgumentCaptor.forClass(Livestock.class);
         verify(livestockRepository).save(captor.capture());

@@ -49,6 +49,9 @@ public class Livestock {
     @Field("id_tag")
     private String idTag;
 
+    @Field("id_tag_normalized")
+    private String idTagNormalized;
+
     private String notes;
 
     @JsonProperty("registration_date")
@@ -215,6 +218,19 @@ public class Livestock {
 
     public void setIdTag(String idTag) {
         this.idTag = idTag;
+        this.idTagNormalized = normalizeIdTag(idTag);
+    }
+
+    String getIdTagNormalized() {
+        return idTagNormalized;
+    }
+
+    void setIdTagNormalized(String idTagNormalized) {
+        this.idTagNormalized = idTagNormalized;
+    }
+
+    public static String normalizeIdTag(String idTag) {
+        return idTag == null || idTag.isBlank() ? null : idTag.trim().toUpperCase(java.util.Locale.ROOT);
     }
 
     public String getNotes() {

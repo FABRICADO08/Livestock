@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -114,9 +115,10 @@ public class AuthController {
     }
 
     @PostMapping({"/google", "", "/"})
-    public Map<String, String> google(@RequestBody Map<String, String> input, HttpSession session) {
-        // Rate-limit sign-in attempts per session (10 per minute)
-        rateLimits.check("auth:" + session.getId(), 10, 60_000L);
+    public Map<String, String> google(@RequestBody Map<String, String> input,
+                                      HttpServletRequest request, HttpSession session) {
+        // Rate-limit sign-in attempts per client address (10 per minute)
+        rateLimits.check("auth:" + request.getRemoteAddr(), 10, 60_000L);
         String clientId = auth.getConfigValue("GOOGLE_CLIENT_ID");
         if (clientId == null || clientId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "GOOGLE_CLIENT_ID is not configured");

@@ -7,6 +7,9 @@ spring:
     session:
       cookie:
         same-site: lax
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 6MB
   mail:
     # SMTP settings for purchase/owner notification emails. Set these as
     # environment variables (e.g. on Render). When MAIL_HOST is unset, email
@@ -27,12 +30,6 @@ spring:
 server:
   port: ${PORT:8080}
   forward-headers-strategy: framework
-  # Uploads (animal photos) are capped well below the per-photo limit enforced
-  # in PhotoController (5 MB) plus multipart overhead.
-  servlet:
-    multipart:
-      max-file-size: 6MB
-      max-request-size: 6MB
 
 management:
   endpoints:

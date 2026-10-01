@@ -14,9 +14,11 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpSession;
+import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,19 +41,22 @@ public class LivestockController {
     private final HealthRecordRepository healthRecordRepository;
     private final NotificationSupport notifications;
     private final MongoTemplate mongoTemplate;
+    private final GridFsTemplate gridFsTemplate;
     private final AuthSupport auth;
 
     public LivestockController(LivestockRepository livestockRepository, UserRepository userRepository,
                                PurchaseRequestRepository purchaseRepository,
                                HealthRecordRepository healthRecordRepository,
                                NotificationSupport notifications,
-                               MongoTemplate mongoTemplate, AuthSupport auth) {
+                               MongoTemplate mongoTemplate, GridFsTemplate gridFsTemplate,
+                               AuthSupport auth) {
         this.livestockRepository = livestockRepository;
         this.userRepository = userRepository;
         this.purchaseRepository = purchaseRepository;
         this.healthRecordRepository = healthRecordRepository;
         this.notifications = notifications;
         this.mongoTemplate = mongoTemplate;
+        this.gridFsTemplate = gridFsTemplate;
         this.auth = auth;
     }
 
@@ -238,7 +243,7 @@ public class LivestockController {
             String summary = (animal.getSpecies() == null ? "Animal" : animal.getSpecies())
                     + (animal.getIdTag() != null && !animal.getIdTag().isBlank()
                             ? " (" + animal.getIdTag() + ")" : "");
-            notifications.notifyVaccinationDue(ownerEmail, summary, "health");
+            notifications.notifyVaccinationDue(ownerEmail, summary, "health?livestockId=" + animal.getId());
         }
         return due;
     }
@@ -300,7 +305,9 @@ public class LivestockController {
         animal.setUpdatedAt(now);
         saveHandlingDuplicateIdTag(animal);
 
-        return success("Record saved successfully", HttpStatus.CREATED.value());
+        Map<String, Object> response = success("Record saved successfully", HttpStatus.CREATED.value());
+        response.put("id", animal.getId());
+        return response;
     }
 
     @PutMapping("/{id}")
@@ -369,6 +376,19 @@ public class LivestockController {
             healthRecordRepository.deleteByLivestockId(existing.getId());
         } catch (Exception e) {
             System.err.println("Could not clean up health records for animal "
+                    + existing.getId() + ": " + e.getMessage());
+        }
+        try {
+            if (existing.getPhotoUrls() != null) {
+                for (String photoUrl : existing.getPhotoUrls()) {
+                    String photoId = photoUrl == null ? "" : photoUrl.substring(photoUrl.lastIndexOf('/') + 1);
+                    if (ObjectId.isValid(photoId)) {
+                        gridFsTemplate.delete(new Query(Criteria.where("_id").is(new ObjectId(photoId))));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Could not clean up photos for animal "
                     + existing.getId() + ": " + e.getMessage());
         }
         return success("Record deleted successfully", HttpStatus.OK.value());

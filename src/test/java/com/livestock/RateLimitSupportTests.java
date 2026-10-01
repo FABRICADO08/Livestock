@@ -48,6 +48,6 @@ class RateLimitSupportTests {
             Thread.currentThread().interrupt();
         }
         // A 1 ms window has elapsed so the bucket is reset
-        assertThatCode(() -> rateLimits.check("key-e2", 1, 1L)).doesNotThrowAnyException();
+        assertThatCode(() -> rateLimits.check("key-e", 1, 1L)).doesNotThrowAnyException();
     }
 }

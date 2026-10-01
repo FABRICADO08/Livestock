@@ -380,7 +380,8 @@ async function handleFormSubmit(e) {
             throw new Error(error.error || 'Save failed');
         }
 
-        const savedId = id || await resolveNewRecordId(idTag);
+        const savedRecord = await response.json();
+        const savedId = id || savedRecord.id;
         if (savedId && selectedPhotos.length > 0) {
             await uploadPhotos(savedId);
         }
@@ -501,22 +502,6 @@ async function uploadPhotos(livestockId) {
         showAlert(`The record was saved but ${selectedPhotos.length - uploaded} photo(s) could not be uploaded.`, 'warning');
     }
     selectedPhotos = [];
-}
-
-async function resolveNewRecordId(idTag) {
-    try {
-        // The create response does not return the new id, so look the record
-        // up by its unique ID tag to attach the photos to it.
-        if (!idTag) return null;
-        const response = await fetch('/api/livestock/?status=ALL&page=0&limit=100');
-        if (!response.ok) return null;
-        const animals = await response.json();
-        const normalized = idTag.trim().toLowerCase();
-        const match = animals.find(a => (a.id_tag || '').trim().toLowerCase() === normalized);
-        return match ? match.id : null;
-    } catch (error) {
-        return null;
-    }
 }
 
 function syncAgeWithDob(showAlertOnInvalid) {

@@ -17,10 +17,12 @@ public class RateLimitSupport {
 
     private static class Bucket {
         volatile long windowStartMillis;
+        volatile long windowMillis;
         final AtomicInteger count = new AtomicInteger(0);
     }
 
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private final AtomicInteger checks = new AtomicInteger();
 
     /**
      * Allows up to {@code maxRequests} per {@code windowMillis} for the key;
@@ -31,14 +33,24 @@ public class RateLimitSupport {
             key = "anonymous";
         }
         long now = System.currentTimeMillis();
+        if (checks.incrementAndGet() % 256 == 0) {
+            buckets.entrySet().removeIf(entry -> {
+                Bucket candidate = entry.getValue();
+                synchronized (candidate) {
+                    return now - candidate.windowStartMillis >= candidate.windowMillis;
+                }
+            });
+        }
         Bucket bucket = buckets.computeIfAbsent(key, k -> {
             Bucket b = new Bucket();
             b.windowStartMillis = now;
+            b.windowMillis = windowMillis;
             return b;
         });
         synchronized (bucket) {
             if (now - bucket.windowStartMillis >= windowMillis) {
                 bucket.windowStartMillis = now;
+                bucket.windowMillis = windowMillis;
                 bucket.count.set(0);
             }
             if (bucket.count.incrementAndGet() > maxRequests) {

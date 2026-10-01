@@ -92,11 +92,11 @@ function setupEventListeners() {
     if (saveHealthRecordBtn) saveHealthRecordBtn.addEventListener('click', saveHealthRecord);
 
     const exportAnimals = document.getElementById('export-animals');
-    if (exportAnimals) exportAnimals.addEventListener('click', () => exportAnimalsCsv(cachedAnimals, 'animals'));
+    if (exportAnimals) exportAnimals.addEventListener('click', () => exportAnimalReport('ACTIVE', 'animals'));
     const exportSold = document.getElementById('export-sold');
-    if (exportSold) exportSold.addEventListener('click', async () => exportAnimalsCsv(await loadByStatus('SOLD'), 'sold-animals'));
+    if (exportSold) exportSold.addEventListener('click', () => exportAnimalReport('SOLD', 'sold-animals'));
     const exportDead = document.getElementById('export-dead');
-    if (exportDead) exportDead.addEventListener('click', async () => exportAnimalsCsv(await loadByStatus('DEAD'), 'dead-animals'));
+    if (exportDead) exportDead.addEventListener('click', () => exportAnimalReport('DEAD', 'dead-animals'));
     const exportRequests = document.getElementById('export-requests');
     if (exportRequests) exportRequests.addEventListener('click', exportPurchaseRequestsCsv);
 
@@ -575,6 +575,18 @@ async function loadByStatus(status) {
     }
 }
 
+async function loadAllByStatus(status) {
+    if (!currentUser || currentUser.role === 'BUYER') return [];
+    const animals = [];
+    for (let page = 0; ; page++) {
+        const response = await fetch(`/api/livestock/?status=${encodeURIComponent(status)}&page=${page}&limit=${pageSize}`);
+        if (!response.ok) throw new Error('Could not load all animal records');
+        const currentPageAnimals = await response.json();
+        animals.push(...currentPageAnimals);
+        if (currentPageAnimals.length < pageSize) return animals;
+    }
+}
+
 async function loadSoldAnimals() {
     cachedSoldAnimals = await loadByStatus('SOLD');
     renderStatusList('sold-table-body', visibleStatusAnimals(cachedSoldAnimals), true);
@@ -934,7 +946,7 @@ function updateNotificationBadge(unread) {
 function renderNotifications() {
     const list = document.getElementById('notification-list');
     if (!list) return;
-    updateNotificationBadge(cachedNotifications.filter(n => !n.read).length);
+    refreshNotificationBadge();
     list.innerHTML = '';
     if (cachedNotifications.length === 0) {
         const empty = document.createElement('div');
@@ -969,11 +981,12 @@ function renderNotifications() {
         item.addEventListener('click', async () => {
             if (!notification.read) {
                 try {
-                    await fetch(`/api/notifications/${encodeURIComponent(notification.id)}/read`,
+                    const response = await fetch(`/api/notifications/${encodeURIComponent(notification.id)}/read`,
                         { method: 'PUT' });
+                    if (!response.ok) throw new Error('Could not mark notification as read');
                     notification.read = true;
                     item.classList.remove('unread');
-                    updateNotificationBadge(cachedNotifications.filter(n => !n.read).length);
+                    await refreshNotificationBadge();
                 } catch (error) {
                     // Non-blocking
                 }
@@ -985,7 +998,8 @@ function renderNotifications() {
 
 async function markAllNotificationsRead() {
     try {
-        await fetch('/api/notifications/read-all', { method: 'PUT' });
+        const response = await fetch('/api/notifications/read-all', { method: 'PUT' });
+        if (!response.ok) throw new Error('Could not mark all notifications as read');
         cachedNotifications.forEach(n => { n.read = true; });
         renderNotifications();
     } catch (error) {
@@ -1033,11 +1047,20 @@ function renderMarketplace() {
         return true;
     });
 
-    const byNumber = key => (a, b) => (Number(a[key]) || Infinity) - (Number(b[key]) || Infinity);
-    if (sort === 'price_asc') animals.sort((a, b) => byNumber('price')(a, b));
-    else if (sort === 'price_desc') animals.sort((a, b) => -byNumber('price')(a, b));
-    else if (sort === 'age_asc') animals.sort((a, b) => byNumber('age')(a, b));
-    else if (sort === 'age_desc') animals.sort((a, b) => -byNumber('age')(a, b));
+    const byNumber = (key, direction) => (a, b) => {
+        const valueA = a[key];
+        const valueB = b[key];
+        const numberA = valueA === null || valueA === undefined || valueA === '' ? NaN : Number(valueA);
+        const numberB = valueB === null || valueB === undefined || valueB === '' ? NaN : Number(valueB);
+        const validA = Number.isFinite(numberA);
+        const validB = Number.isFinite(numberB);
+        if (!validA || !validB) return validA === validB ? 0 : validA ? -1 : 1;
+        return (numberA - numberB) * direction;
+    };
+    if (sort === 'price_asc') animals.sort(byNumber('price', 1));
+    else if (sort === 'price_desc') animals.sort(byNumber('price', -1));
+    else if (sort === 'age_asc') animals.sort(byNumber('age', 1));
+    else if (sort === 'age_desc') animals.sort(byNumber('age', -1));
     else animals.sort((a, b) => new Date(b.created_at || b.date || 0) - new Date(a.created_at || a.date || 0));
 
     grid.innerHTML = '';
@@ -1730,7 +1753,8 @@ function showAlert(message, type) {
 /* ---------------- CSV export (Reports) ---------------- */
 
 function csvCell(value) {
-    const text = value === null || value === undefined ? '' : String(value);
+    let text = value === null || value === undefined ? '' : String(value);
+    if (/^[\s\u0000-\u001f]*[=+\-@]/.test(text)) text = "'" + text;
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -1775,6 +1799,15 @@ function exportAnimalsCsv(animals, filename) {
         ['ID Tag', 'Species', 'Breed', 'Age', 'Weight (kg)', 'Gender', 'Health Status',
             'Vaccination', 'Location', 'Price (R)', 'Status', 'Owner', 'Registered'],
         animalCsvRows(animals));
+}
+
+async function exportAnimalReport(status, filename) {
+    try {
+        const animals = await loadAllByStatus(status);
+        exportAnimalsCsv(currentUser.role === 'ADMIN' ? animals : animals.filter(isOwnAnimal), filename);
+    } catch (error) {
+        showAlert('Could not load animal records for export.', 'danger');
+    }
 }
 
 async function exportPurchaseRequestsCsv() {

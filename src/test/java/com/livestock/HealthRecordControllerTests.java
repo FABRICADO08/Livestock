@@ -170,21 +170,30 @@ class HealthRecordControllerTests {
     @Test
     void reminderCandidateLogic() {
         HealthRecord due = new HealthRecord();
+        due.setType(HealthRecord.TYPE_VACCINATION);
         due.setNextDueDate(java.time.LocalDate.now().toString());
         org.assertj.core.api.Assertions.assertThat(HealthRecordController.isReminderCandidate(due)).isTrue();
         org.assertj.core.api.Assertions.assertThat(HealthRecordController.daysUntilDue(due)).isZero();
 
         HealthRecord overdue = new HealthRecord();
+        overdue.setType(HealthRecord.TYPE_VACCINATION);
         overdue.setNextDueDate(java.time.LocalDate.now().minusDays(5).toString());
         org.assertj.core.api.Assertions.assertThat(HealthRecordController.isReminderCandidate(overdue)).isTrue();
         org.assertj.core.api.Assertions.assertThat(HealthRecordController.daysUntilDue(overdue)).isEqualTo(-5);
 
         HealthRecord future = new HealthRecord();
+        future.setType(HealthRecord.TYPE_VACCINATION);
         future.setNextDueDate(java.time.LocalDate.now().plusDays(90).toString());
         org.assertj.core.api.Assertions.assertThat(HealthRecordController.isReminderCandidate(future)).isFalse();
 
         HealthRecord none = new HealthRecord();
+        none.setType(HealthRecord.TYPE_VACCINATION);
         org.assertj.core.api.Assertions.assertThat(HealthRecordController.isReminderCandidate(none)).isFalse();
         org.assertj.core.api.Assertions.assertThat(HealthRecordController.daysUntilDue(none)).isNull();
+
+        HealthRecord treatment = new HealthRecord();
+        treatment.setType(HealthRecord.TYPE_TREATMENT);
+        treatment.setNextDueDate(java.time.LocalDate.now().toString());
+        org.assertj.core.api.Assertions.assertThat(HealthRecordController.isReminderCandidate(treatment)).isFalse();
     }
 }

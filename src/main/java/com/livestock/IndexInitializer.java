@@ -31,10 +31,21 @@ public class IndexInitializer {
     public void ensureIndexes() {
         try {
             IndexOperations livestockOps = mongoTemplate.indexOps(Livestock.class);
+            for (Livestock animal : mongoTemplate.findAll(Livestock.class)) {
+                String normalizedIdTag = Livestock.normalizeIdTag(animal.getIdTag());
+                if (!java.util.Objects.equals(animal.getIdTagNormalized(), normalizedIdTag)) {
+                    animal.setIdTagNormalized(normalizedIdTag);
+                    mongoTemplate.save(animal);
+                }
+            }
             livestockOps.ensureIndex(new Index().on("status", Sort.Direction.ASC));
             livestockOps.ensureIndex(new Index().on("created_by_email", Sort.Direction.ASC));
             livestockOps.ensureIndex(new Index().on("id_tag", Sort.Direction.ASC)
                     .named("id_tag_unique_idx")
+                    .unique()
+                    .sparse());
+            livestockOps.ensureIndex(new Index().on("id_tag_normalized", Sort.Direction.ASC)
+                    .named("id_tag_normalized_unique_idx")
                     .unique()
                     .sparse());
             mongoTemplate.indexOps(HealthRecord.class)
