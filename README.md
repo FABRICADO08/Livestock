@@ -18,7 +18,7 @@ A responsive web application for managing livestock records with MongoDB persist
 - Animal photos: owners/admins can attach up to 5 photos per animal (JPEG/PNG/WebP/GIF, max 5 MB each); photos are stored in MongoDB GridFS and shown as photo cards in the marketplace and as a gallery in the detail view
 - Health records: per-animal log of vaccinations, treatments and checkups (date, vet, notes, next due date); due/overdue vaccinations are surfaced on the dashboard and create in-app notifications for the owner
 - Marketplace filters and photo cards: buyers browse a photo card grid and can filter by species, gender and max price, search by species/breed/ID tag/location, and sort by price, age or newest
-- Reports: CSV export of animals, sold/dead animals and pending purchase requests
+- Reports: XLSX export of animals, sold/dead animals and pending purchase requests
 - Rate limiting: sign-in and purchase-request endpoints reject bursts with HTTP 429
 - Health check endpoint: `GET /actuator/health` for uptime monitoring (e.g. Render)
 - New sign-ins default to `USER`; admins can change a user's role to `BUYER` in User Management
