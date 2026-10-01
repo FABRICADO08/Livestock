@@ -153,7 +153,7 @@ async function loadSellers(selectedEmail) {
             const option = document.createElement('option');
             option.value = seller.email;
             option.textContent = seller.name && seller.name.trim()
-                ? `${seller.name} (${seller.email})`
+                ? seller.name
                 : seller.email;
             select.appendChild(option);
         });
@@ -271,7 +271,7 @@ async function loadAnimalForEdit() {
                 const option = document.createElement('option');
                 option.value = animal.created_by_email;
                 option.textContent = animal.created_by
-                    ? `${animal.created_by} (${animal.created_by_email})`
+                    ? animal.created_by
                     : animal.created_by_email;
                 select.appendChild(option);
             }
