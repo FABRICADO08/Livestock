@@ -2,7 +2,7 @@ package com.livestock;
 
 import java.io.FileInputStream;
 import java.util.Properties;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
