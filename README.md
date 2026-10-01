@@ -14,9 +14,16 @@ A responsive web application for managing livestock records with MongoDB persist
 - Animal lifecycle status: `ACTIVE` (default), `SOLD`, `DEAD`. Sold and dead animals are removed from the main Animals list and shown in their own Sold/Dead views; the marketplace only lists active animals
 - Purchase requests: buyers request to buy an animal; the seller (record owner) or an admin approves or declines from the Purchase Requests view. While a request is pending the marketplace shows "Waiting for approval" to that buyer and "Purchase pending" to everyone else, and the Buy button is hidden. Approving marks the animal `SOLD` and declines competing requests; buyers track their requests (and cancel pending ones) under My Purchases
 - Email notifications: the animal owner and buyer are emailed when a purchase request is created, approved, declined or cancelled (requires SMTP settings, see Environment Variables)
+- In-app notifications: a bell icon with an unread badge in the navbar shows purchase requests, approvals/declines/cancellations and vaccination reminders even when email delivery is unavailable
+- Animal photos: owners/admins can attach up to 5 photos per animal (JPEG/PNG/WebP/GIF, max 5 MB each); photos are stored in MongoDB GridFS and shown as photo cards in the marketplace and as a gallery in the detail view
+- Health records: per-animal log of vaccinations, treatments and checkups (date, vet, notes, next due date); due/overdue vaccinations are surfaced on the dashboard and create in-app notifications for the owner
+- Marketplace filters and photo cards: buyers browse a photo card grid and can filter by species, gender and max price, search by species/breed/ID tag/location, and sort by price, age or newest
+- Reports: CSV export of animals, sold/dead animals and pending purchase requests
+- Rate limiting: sign-in and purchase-request endpoints reject bursts with HTTP 429
+- Health check endpoint: `GET /actuator/health` for uptime monitoring (e.g. Render)
 - New sign-ins default to `USER`; admins can change a user's role to `BUYER` in User Management
 - Audit trail per record (`created_by`, `updated_by`, `created_at`, `updated_at`) - records store the owner's full name plus their email (`created_by_email`)
-- ID tags (`id_tag`) are unique - an animal cannot be saved with a tag already used by another record, and the tag cannot be changed once the record exists
+- ID tags (`id_tag`) are unique - enforced in code and by a unique MongoDB index; an animal cannot be saved with a tag already used by another record, and the tag cannot be changed once the record exists
 - User collection with name, role and login tracking
 - CRUD dashboard with search/filter/statistics
 
@@ -98,7 +105,9 @@ Open `http://localhost:8080`, sign in with Google, then manage records.
 
 ## Deploy on Render
 
-Render builds the Docker image from `DockerFile` (multi-stage Maven build, then runs the Spring Boot jar). Set these environment variables in the Render dashboard:
+Render builds the Docker image from `DockerFile` (multi-stage Maven build, then runs the Spring Boot jar). Configure the service to deploy from the `main` branch and disable Render's automatic deploys. Create a Render deploy hook and save its URL as the GitHub repository secret `RENDER_DEPLOY_HOOK`. The GitHub Actions workflow triggers that hook only when a pull request targeting `main` is merged; closing an unmerged pull request does not deploy.
+
+Set these environment variables in the Render dashboard:
 
 - `MONGO_URI` – MongoDB connection string
 - `GOOGLE_CLIENT_ID` – Google OAuth client ID
@@ -128,5 +137,17 @@ Render builds the Docker image from `DockerFile` (multi-stage Maven build, then 
 - `PUT /api/purchases/{id}/decline` – decline a request (owner or ADMIN)
 - `PUT /api/purchases/{id}/cancel` – cancel your own pending request (BUYER)
 - `GET /api/pricing/suggestions?species=` – suggested asking price based on existing listings
+- `POST /api/livestock/{id}/photos` – upload an animal photo (`multipart/form-data`, field `file`; owner or ADMIN; max 5 photos, 5 MB each)
+- `GET /api/livestock/photos/{photoId}` – download a photo (any signed-in user)
+- `DELETE /api/livestock/{id}/photos/{photoId}` – remove a photo (owner or ADMIN)
+- `GET /api/livestock/vaccinations-due` – vaccination records due within 30 days or overdue for the signed-in user's animals (all animals for ADMIN); also creates in-app reminder notifications
+- `GET /api/livestock/{id}/health-records` – list health records for an animal (any signed-in user)
+- `POST /api/livestock/{id}/health-records` – add a health record: `type` (Vaccination/Treatment/Checkup), `record_date`, optional `vet`, `notes`, `next_due_date` (owner or ADMIN)
+- `DELETE /api/livestock/{id}/health-records/{recordId}` – delete a health record (owner or ADMIN)
+- `GET /api/notifications/` – the signed-in user's in-app notifications (newest first, max 50)
+- `GET /api/notifications/unread-count` – unread notification count for the navbar badge
+- `PUT /api/notifications/{id}/read` – mark one of your notifications as read
+- `PUT /api/notifications/read-all` – mark all your notifications as read
+- `GET /actuator/health` – liveness/readiness probe (no authentication required)
 
 Record IDs are MongoDB ObjectId strings.

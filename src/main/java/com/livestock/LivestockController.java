@@ -14,9 +14,11 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpSession;
+import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,16 +38,25 @@ public class LivestockController {
     private final LivestockRepository livestockRepository;
     private final UserRepository userRepository;
     private final PurchaseRequestRepository purchaseRepository;
+    private final HealthRecordRepository healthRecordRepository;
+    private final NotificationSupport notifications;
     private final MongoTemplate mongoTemplate;
+    private final GridFsTemplate gridFsTemplate;
     private final AuthSupport auth;
 
     public LivestockController(LivestockRepository livestockRepository, UserRepository userRepository,
                                PurchaseRequestRepository purchaseRepository,
-                               MongoTemplate mongoTemplate, AuthSupport auth) {
+                               HealthRecordRepository healthRecordRepository,
+                               NotificationSupport notifications,
+                               MongoTemplate mongoTemplate, GridFsTemplate gridFsTemplate,
+                               AuthSupport auth) {
         this.livestockRepository = livestockRepository;
         this.userRepository = userRepository;
         this.purchaseRepository = purchaseRepository;
+        this.healthRecordRepository = healthRecordRepository;
+        this.notifications = notifications;
         this.mongoTemplate = mongoTemplate;
+        this.gridFsTemplate = gridFsTemplate;
         this.auth = auth;
     }
 
@@ -186,6 +197,57 @@ public class LivestockController {
         return toJson(animal);
     }
 
+    // Vaccination records due within 30 days (or overdue) for the animals the
+    // signed-in user can see; powers the dashboard reminder panel and creates
+    // the matching in-app notifications.
+    @GetMapping("/vaccinations-due")
+    public List<Map<String, Object>> vaccinationsDue(HttpSession session) {
+        String email = auth.requireEmail(session);
+        String role = auth.currentUserRole(session);
+        if ("BUYER".equalsIgnoreCase(role)) {
+            return List.of();
+        }
+
+        List<Livestock> animals = livestockRepository.findAll();
+        List<Map<String, Object>> due = new java.util.ArrayList<>();
+        for (HealthRecord record : healthRecordRepository.findAll()) {
+            if (!HealthRecordController.isReminderCandidate(record)) {
+                continue;
+            }
+            Livestock animal = animals.stream()
+                    .filter(a -> a.getId() != null && a.getId().equals(record.getLivestockId()))
+                    .findFirst().orElse(null);
+            if (animal == null || !isActive(animal)) {
+                continue;
+            }
+            boolean admin = "ADMIN".equalsIgnoreCase(role);
+            String ownerEmail = animal.getCreatedByEmail() != null
+                    ? animal.getCreatedByEmail() : animal.getCreatedBy();
+            if (!admin && (ownerEmail == null || !ownerEmail.equalsIgnoreCase(email))) {
+                continue;
+            }
+
+            Integer daysUntilDue = HealthRecordController.daysUntilDue(record);
+            Map<String, Object> json = new LinkedHashMap<>();
+            json.put("livestock_id", animal.getId());
+            json.put("id_tag", animal.getIdTag());
+            json.put("species", animal.getSpecies());
+            json.put("breed", animal.getBreed());
+            json.put("record_type", record.getType());
+            json.put("next_due_date", record.getNextDueDate());
+            json.put("overdue", daysUntilDue != null && daysUntilDue < 0);
+            json.put("days_until_due", daysUntilDue);
+            json.put("owner_email", ownerEmail);
+            due.add(json);
+
+            String summary = (animal.getSpecies() == null ? "Animal" : animal.getSpecies())
+                    + (animal.getIdTag() != null && !animal.getIdTag().isBlank()
+                            ? " (" + animal.getIdTag() + ")" : "");
+            notifications.notifyVaccinationDue(ownerEmail, summary, "health?livestockId=" + animal.getId());
+        }
+        return due;
+    }
+
     @GetMapping("/stats")
     public Map<String, Object> stats(HttpSession session) {
         auth.requireEmail(session);
@@ -241,9 +303,11 @@ public class LivestockController {
         animal.setRegistrationDate(now);
         animal.setCreatedAt(now);
         animal.setUpdatedAt(now);
-        livestockRepository.save(animal);
+        saveHandlingDuplicateIdTag(animal);
 
-        return success("Record saved successfully", HttpStatus.CREATED.value());
+        Map<String, Object> response = success("Record saved successfully", HttpStatus.CREATED.value());
+        response.put("id", animal.getId());
+        return response;
     }
 
     @PutMapping("/{id}")
@@ -297,7 +361,7 @@ public class LivestockController {
         existing.setUpdatedBy(displayName(email));
         existing.setUpdatedByEmail(email);
         existing.setUpdatedAt(new Date());
-        livestockRepository.save(existing);
+        saveHandlingDuplicateIdTag(existing);
 
         return success("Record updated successfully", HttpStatus.OK.value());
     }
@@ -308,7 +372,39 @@ public class LivestockController {
         requireNonBuyer(session);
         Livestock existing = requireOwnedRecord(id, session, email);
         livestockRepository.delete(existing);
+        try {
+            healthRecordRepository.deleteByLivestockId(existing.getId());
+        } catch (Exception e) {
+            System.err.println("Could not clean up health records for animal "
+                    + existing.getId() + ": " + e.getMessage());
+        }
+        try {
+            if (existing.getPhotoUrls() != null) {
+                for (String photoUrl : existing.getPhotoUrls()) {
+                    String photoId = photoUrl == null ? "" : photoUrl.substring(photoUrl.lastIndexOf('/') + 1);
+                    if (ObjectId.isValid(photoId)) {
+                        gridFsTemplate.delete(new Query(Criteria.where("_id").is(new ObjectId(photoId))));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Could not clean up photos for animal "
+                    + existing.getId() + ": " + e.getMessage());
+        }
         return success("Record deleted successfully", HttpStatus.OK.value());
+    }
+
+    // The unique id_tag index protects against concurrent creates that both
+    // pass the application-level check; translate the duplicate-key error
+    // into the same 409 the check produces.
+    private void saveHandlingDuplicateIdTag(Livestock animal) {
+        try {
+            livestockRepository.save(animal);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "An animal with ID tag '" + (animal.getIdTag() == null ? "" : animal.getIdTag().trim())
+                            + "' already exists. ID tags must be unique.");
+        }
     }
 
     private User requireSeller(String ownerEmail) {
@@ -411,6 +507,7 @@ public class LivestockController {
         json.put("for_sale", a.getForSale() == null || a.getForSale());
         json.put("price", a.getPrice());
         json.put("status", statusOrDefault(a));
+        json.put("photo_urls", a.getPhotoUrls() == null ? List.of() : a.getPhotoUrls());
         return json;
     }
 }

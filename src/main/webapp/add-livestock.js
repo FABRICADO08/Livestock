@@ -27,6 +27,10 @@ const classificationBySpeciesAndGender = {
 let currentUser = null;
 let googleClientId = null;
 let originalIdTag = null;
+const MAX_PHOTOS = 5;
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+let selectedPhotos = [];
+let existingPhotoUrls = [];
 
 document.addEventListener('DOMContentLoaded', async function() {
     setupEventListeners();
@@ -46,6 +50,10 @@ function setupEventListeners() {
     genderSelect.addEventListener('change', updateBreedAndClassification);
     if (dobInput) {
         dobInput.addEventListener('change', () => syncAgeWithDob(false));
+    }
+    const photoInput = document.getElementById('photos');
+    if (photoInput) {
+        photoInput.addEventListener('change', handlePhotoSelection);
     }
     if (cancelBtn) {
         cancelBtn.addEventListener('click', function (e) {
@@ -253,6 +261,8 @@ async function loadAnimalForEdit() {
         document.getElementById('price').value = animal.price ?? '';
         document.getElementById('for-sale').checked = animal.for_sale !== false;
         document.getElementById('notes').value = animal.notes || '';
+        existingPhotoUrls = Array.isArray(animal.photo_urls) ? [...animal.photo_urls] : [];
+        renderPhotoPreview();
 
         // Preselect the current owner in the admin seller dropdown
         if (currentUser && currentUser.role === 'ADMIN' && animal.created_by_email) {
@@ -370,10 +380,128 @@ async function handleFormSubmit(e) {
             throw new Error(error.error || 'Save failed');
         }
 
+        const savedRecord = await response.json();
+        const savedId = id || savedRecord.id;
+        if (savedId && selectedPhotos.length > 0) {
+            await uploadPhotos(savedId);
+        }
+
         closePage();
     } catch (error) {
         showAlert('Error saving record: ' + error.message, 'danger');
     }
+}
+
+/* ---------------- Photos ---------------- */
+
+function handlePhotoSelection(event) {
+    const files = Array.from(event.target.files || []);
+    for (const file of files) {
+        if (selectedPhotos.length + existingPhotoUrls.length >= MAX_PHOTOS) {
+            showAlert(`You can attach at most ${MAX_PHOTOS} photos per animal.`, 'warning');
+            break;
+        }
+        if (!file.type.startsWith('image/')) {
+            showAlert(`'${file.name}' is not an image file.`, 'warning');
+            continue;
+        }
+        if (file.size > MAX_PHOTO_BYTES) {
+            showAlert(`'${file.name}' is larger than 5 MB.`, 'warning');
+            continue;
+        }
+        selectedPhotos.push(file);
+    }
+    event.target.value = '';
+    renderPhotoPreview();
+}
+
+function renderPhotoPreview() {
+    const preview = document.getElementById('photo-preview');
+    if (!preview) return;
+    preview.innerHTML = '';
+
+    existingPhotoUrls.forEach((url, index) => {
+        const thumb = document.createElement('div');
+        thumb.className = 'photo-thumb';
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = `Photo ${index + 1}`;
+        thumb.appendChild(img);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'photo-remove';
+        remove.innerHTML = '<i class="bi bi-x"></i>';
+        remove.title = 'Remove photo';
+        remove.addEventListener('click', () => removeExistingPhoto(index));
+        thumb.appendChild(remove);
+        preview.appendChild(thumb);
+    });
+
+    selectedPhotos.forEach((file, index) => {
+        const thumb = document.createElement('div');
+        thumb.className = 'photo-thumb';
+        const img = document.createElement('img');
+        img.alt = file.name;
+        img.src = URL.createObjectURL(file);
+        thumb.appendChild(img);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'photo-remove';
+        remove.innerHTML = '<i class="bi bi-x"></i>';
+        remove.title = 'Remove photo';
+        remove.addEventListener('click', () => {
+            selectedPhotos.splice(index, 1);
+            renderPhotoPreview();
+        });
+        thumb.appendChild(remove);
+        preview.appendChild(thumb);
+    });
+}
+
+async function removeExistingPhoto(index) {
+    const url = existingPhotoUrls[index];
+    const id = document.getElementById('livestock-id').value;
+    if (!id) {
+        existingPhotoUrls.splice(index, 1);
+        renderPhotoPreview();
+        return;
+    }
+    const photoId = url.substring(url.lastIndexOf('/') + 1);
+    try {
+        const response = await fetch(`/api/livestock/${encodeURIComponent(id)}/photos/${encodeURIComponent(photoId)}`,
+            { method: 'DELETE' });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Could not remove the photo');
+        }
+        existingPhotoUrls.splice(index, 1);
+        renderPhotoPreview();
+    } catch (error) {
+        showAlert(error.message, 'danger');
+    }
+}
+
+async function uploadPhotos(livestockId) {
+    let uploaded = 0;
+    for (const file of selectedPhotos) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch(`/api/livestock/${encodeURIComponent(livestockId)}/photos`, {
+            method: 'POST',
+            body: formData
+        });
+        if (response.ok) {
+            uploaded++;
+            const result = await response.json().catch(() => ({}));
+            if (Array.isArray(result.photo_urls)) {
+                existingPhotoUrls = result.photo_urls;
+            }
+        }
+    }
+    if (uploaded < selectedPhotos.length) {
+        showAlert(`The record was saved but ${selectedPhotos.length - uploaded} photo(s) could not be uploaded.`, 'warning');
+    }
+    selectedPhotos = [];
 }
 
 function syncAgeWithDob(showAlertOnInvalid) {

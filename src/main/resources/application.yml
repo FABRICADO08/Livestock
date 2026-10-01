@@ -7,6 +7,9 @@ spring:
     session:
       cookie:
         same-site: lax
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 6MB
   mail:
     # SMTP settings for purchase/owner notification emails. Set these as
     # environment variables (e.g. on Render). When MAIL_HOST is unset, email
@@ -26,3 +29,14 @@ spring:
 
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      # Only the health check is exposed - enough for Render/uptime monitors.
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
