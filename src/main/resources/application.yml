@@ -26,3 +26,20 @@ spring:
 
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
+  # Uploads (animal photos) are capped well below the per-photo limit enforced
+  # in PhotoController (5 MB) plus multipart overhead.
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 6MB
+
+management:
+  endpoints:
+    web:
+      # Only the health check is exposed - enough for Render/uptime monitors.
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

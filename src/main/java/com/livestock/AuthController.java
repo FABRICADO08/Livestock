@@ -31,10 +31,12 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final AuthSupport auth;
+    private final RateLimitSupport rateLimits;
 
-    public AuthController(UserRepository userRepository, AuthSupport auth) {
+    public AuthController(UserRepository userRepository, AuthSupport auth, RateLimitSupport rateLimits) {
         this.userRepository = userRepository;
         this.auth = auth;
+        this.rateLimits = rateLimits;
     }
 
     @GetMapping({"", "/", "/session"})
@@ -113,6 +115,8 @@ public class AuthController {
 
     @PostMapping({"/google", "", "/"})
     public Map<String, String> google(@RequestBody Map<String, String> input, HttpSession session) {
+        // Rate-limit sign-in attempts per session (10 per minute)
+        rateLimits.check("auth:" + session.getId(), 10, 60_000L);
         String clientId = auth.getConfigValue("GOOGLE_CLIENT_ID");
         if (clientId == null || clientId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "GOOGLE_CLIENT_ID is not configured");

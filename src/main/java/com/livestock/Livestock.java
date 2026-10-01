@@ -2,7 +2,9 @@ package com.livestock;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -90,6 +92,12 @@ public class Livestock {
     @JsonAlias("status")
     @Field("status")
     private String status = "ACTIVE";
+
+    // Photos uploaded for this animal; each entry is a URL served by
+    // PhotoController (/api/livestock/photos/{id}).
+    @JsonProperty("photo_urls")
+    @Field("photo_urls")
+    private List<String> photoUrls = new ArrayList<>();
 
     // Transient input used by admins to assign a record to a seller (USER) on
     // create/update. Never persisted - ownership is stored via created_by_email.
@@ -303,5 +311,13 @@ public class Livestock {
 
     public void setOwnerEmail(String ownerEmail) {
         this.ownerEmail = ownerEmail;
+    }
+
+    public List<String> getPhotoUrls() {
+        return photoUrls;
+    }
+
+    public void setPhotoUrls(List<String> photoUrls) {
+        this.photoUrls = photoUrls == null ? new ArrayList<>() : photoUrls;
     }
 }

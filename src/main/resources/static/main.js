@@ -11,6 +11,9 @@ let cachedPurchaseRequests = [];
 let cachedMyPurchases = [];
 let currentView = 'dashboard';
 let pendingBuyId = null;
+let cachedNotifications = [];
+let currentDetailAnimal = null;
+let pendingHealthRecordAnimalId = null;
 
 const ROLE_LABELS = { ADMIN: 'Administrator', USER: 'User', BUYER: 'Buyer' };
 const SPECIES_COLORS = ['#2f6bff', '#2fbf71', '#845ef7', '#ff922b', '#15aabf', '#f0524f', '#e64980'];
@@ -44,8 +47,14 @@ function setupEventListeners() {
 
     const marketplaceSearch = document.getElementById('marketplace-search');
     const marketplaceSpecies = document.getElementById('marketplace-species');
+    const marketplaceGender = document.getElementById('marketplace-gender');
+    const marketplaceMaxPrice = document.getElementById('marketplace-max-price');
+    const marketplaceSort = document.getElementById('marketplace-sort');
     if (marketplaceSearch) marketplaceSearch.addEventListener('input', debounce(renderMarketplace, 300));
     if (marketplaceSpecies) marketplaceSpecies.addEventListener('change', renderMarketplace);
+    if (marketplaceGender) marketplaceGender.addEventListener('change', renderMarketplace);
+    if (marketplaceMaxPrice) marketplaceMaxPrice.addEventListener('input', debounce(renderMarketplace, 300));
+    if (marketplaceSort) marketplaceSort.addEventListener('change', renderMarketplace);
 
     const qaRefresh = document.getElementById('qa-refresh');
     if (qaRefresh) qaRefresh.addEventListener('click', () => loadLivestock().then(renderDashboard));
@@ -71,6 +80,25 @@ function setupEventListeners() {
     if (settingsSuggest) settingsSuggest.addEventListener('click', suggestPriceFromSettings);
 
     document.getElementById('confirm-buy-btn').addEventListener('click', confirmBuy);
+
+    const notificationBell = document.getElementById('notification-bell');
+    if (notificationBell) {
+        notificationBell.addEventListener('click', () => loadNotifications().then(renderNotifications));
+    }
+    const markAllRead = document.getElementById('notifications-mark-all');
+    if (markAllRead) markAllRead.addEventListener('click', markAllNotificationsRead);
+
+    const saveHealthRecordBtn = document.getElementById('save-health-record-btn');
+    if (saveHealthRecordBtn) saveHealthRecordBtn.addEventListener('click', saveHealthRecord);
+
+    const exportAnimals = document.getElementById('export-animals');
+    if (exportAnimals) exportAnimals.addEventListener('click', () => exportAnimalsCsv(cachedAnimals, 'animals'));
+    const exportSold = document.getElementById('export-sold');
+    if (exportSold) exportSold.addEventListener('click', async () => exportAnimalsCsv(await loadByStatus('SOLD'), 'sold-animals'));
+    const exportDead = document.getElementById('export-dead');
+    if (exportDead) exportDead.addEventListener('click', async () => exportAnimalsCsv(await loadByStatus('DEAD'), 'dead-animals'));
+    const exportRequests = document.getElementById('export-requests');
+    if (exportRequests) exportRequests.addEventListener('click', exportPurchaseRequestsCsv);
 
     const requestsRefresh = document.getElementById('requests-refresh');
     if (requestsRefresh) requestsRefresh.addEventListener('click', loadPurchaseRequests);
@@ -98,7 +126,10 @@ async function initializeAuth() {
                 await loadLivestock();
                 renderDashboard();
                 switchView('dashboard');
+                loadVaccinationReminders();
             }
+            loadNotifications().then(renderNotifications);
+            setInterval(refreshNotificationBadge, 60000);
             document.body.classList.add('auth-ready');
             document.querySelector('.app-shell')?.removeAttribute('aria-hidden');
             return;
@@ -255,6 +286,68 @@ function renderDashboard() {
     renderSpeciesChart(animals);
     renderHealthChart(healthy, sick, total);
     renderTrendChart(animals);
+    renderVaccinationReminders();
+}
+
+/* ---------------- Vaccination reminders ---------------- */
+
+let cachedVaccinationsDue = [];
+
+async function loadVaccinationReminders() {
+    if (!currentUser || currentUser.role === 'BUYER') return;
+    try {
+        const response = await fetch('/api/livestock/vaccinations-due');
+        if (!response.ok) return;
+        cachedVaccinationsDue = await response.json();
+        renderVaccinationReminders();
+    } catch (error) {
+        console.error('Error loading vaccination reminders:', error);
+    }
+}
+
+function renderVaccinationReminders() {
+    const card = document.getElementById('vaccination-due-card');
+    const list = document.getElementById('vaccination-due-list');
+    if (!card || !list) return;
+    list.innerHTML = '';
+    if (cachedVaccinationsDue.length === 0) {
+        card.style.display = 'none';
+        return;
+    }
+    card.style.display = 'block';
+    cachedVaccinationsDue.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'd-flex justify-content-between align-items-center border rounded p-2 mb-2';
+        const overdue = !!item.overdue;
+        const badge = overdue
+            ? '<span class="badge bg-danger">Overdue</span>'
+            : '<span class="badge bg-warning text-dark">Due soon</span>';
+        const info = document.createElement('div');
+        const label = document.createElement('div');
+        label.className = 'fw-semibold';
+        label.textContent = `${item.species || 'Animal'} ${item.id_tag ? '(' + item.id_tag + ')' : ''}`;
+        const sub = document.createElement('div');
+        sub.className = 'small text-muted';
+        sub.textContent = `${item.record_type || 'Vaccination'} due ${item.next_due_date || ''}`
+            + (item.days_until_due !== null && item.days_until_due !== undefined
+                ? (overdue
+                    ? ` - ${Math.abs(item.days_until_due)} day(s) overdue`
+                    : ` - in ${item.days_until_due} day(s)`)
+                : '');
+        info.appendChild(label);
+        info.appendChild(sub);
+        const right = document.createElement('div');
+        right.className = 'd-flex align-items-center gap-2';
+        right.insertAdjacentHTML('beforeend', badge);
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'btn btn-sm btn-outline-primary';
+        viewBtn.textContent = 'View';
+        viewBtn.addEventListener('click', () => viewDetails(item.livestock_id));
+        right.appendChild(viewBtn);
+        row.appendChild(info);
+        row.appendChild(right);
+        list.appendChild(row);
+    });
 }
 
 function visibleAnimals() {
@@ -577,8 +670,10 @@ async function viewDetails(id) {
         showAlert('Animal not found', 'danger');
         return;
     }
+    currentDetailAnimal = animal;
 
     document.getElementById('viewModalBody').innerHTML = `
+        <div id="detail-photos"></div>
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Species:</strong> ${animal.species}</p>
@@ -596,8 +691,10 @@ async function viewDetails(id) {
                 <p><strong>Location:</strong> ${animal.location || 'N/A'}</p>
                 <p><strong>ID Tag:</strong> ${animal.id_tag || 'N/A'}</p>
                 <p><strong>Price:</strong> ${formatPrice(animal.price)}</p>
+                <p><strong>Seller:</strong> ${animal.created_by || 'N/A'}</p>
             </div>
         </div>
+        <div id="detail-buy"></div>
         <hr>
         <p><strong>Date of Birth:</strong> ${animal.date_of_birth || 'N/A'}</p>
         <p><strong>Acquisition Date:</strong> ${animal.acquisition_date || 'N/A'}</p>
@@ -605,8 +702,284 @@ async function viewDetails(id) {
         <p><strong>Created By:</strong> ${animal.created_by || 'N/A'}</p>
         <p><strong>Updated By:</strong> ${animal.updated_by || 'N/A'}</p>
         <p><small class="text-muted">Created: ${animal.created_at ? new Date(animal.created_at).toLocaleString() : 'N/A'} | Updated: ${animal.updated_at ? new Date(animal.updated_at).toLocaleString() : 'N/A'}</small></p>
+        <hr>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0"><i class="bi bi-clipboard2-pulse me-1"></i>Health Records</h6>
+            <button class="btn btn-sm btn-outline-success" id="detail-add-health" style="display:none">
+                <i class="bi bi-plus-lg"></i> Add Health Record
+            </button>
+        </div>
+        <div id="detail-health-records" class="small text-muted">Loading health records…</div>
     `;
+
+    renderDetailPhotos(animal);
+
+    const buyContainer = document.getElementById('detail-buy');
+    if (currentUser.role === 'BUYER' && animal.for_sale !== false && !animal.pending_request) {
+        const buyBtn = document.createElement('button');
+        buyBtn.className = 'btn btn-success w-100 mb-2';
+        buyBtn.innerHTML = '<i class="bi bi-bag-check"></i> Request to Buy';
+        buyBtn.addEventListener('click', () => {
+            bootstrap.Modal.getInstance(document.getElementById('viewModal'))?.hide();
+            openBuyModal(animal.id);
+        });
+        buyContainer.appendChild(buyBtn);
+    }
+
+    const addHealthBtn = document.getElementById('detail-add-health');
+    if (canModifyAnimal(animal)) {
+        addHealthBtn.style.display = 'inline-block';
+        addHealthBtn.addEventListener('click', () => openHealthRecordModal(animal.id));
+    }
+
     new bootstrap.Modal(document.getElementById('viewModal')).show();
+    loadHealthRecordsIntoDetail(animal);
+}
+
+function renderDetailPhotos(animal) {
+    const container = document.getElementById('detail-photos');
+    const photoUrls = Array.isArray(animal.photo_urls) ? animal.photo_urls : [];
+    if (photoUrls.length === 0) return;
+
+    const main = document.createElement('img');
+    main.className = 'detail-photo mb-2';
+    main.alt = `${animal.species} photo`;
+    main.src = photoUrls[0];
+    container.appendChild(main);
+
+    if (photoUrls.length > 1) {
+        const thumbs = document.createElement('div');
+        thumbs.className = 'd-flex gap-2 mb-3 flex-wrap';
+        photoUrls.forEach((url, index) => {
+            const thumb = document.createElement('img');
+            thumb.className = 'detail-photo-thumb' + (index === 0 ? ' active' : '');
+            thumb.alt = `Photo ${index + 1}`;
+            thumb.src = url;
+            thumb.addEventListener('click', () => {
+                main.src = url;
+                thumbs.querySelectorAll('.detail-photo-thumb').forEach(t => t.classList.remove('active'));
+                thumb.classList.add('active');
+            });
+            thumbs.appendChild(thumb);
+        });
+        container.appendChild(thumbs);
+    }
+}
+
+async function loadHealthRecordsIntoDetail(animal) {
+    const container = document.getElementById('detail-health-records');
+    if (!container) return;
+    try {
+        const response = await fetch(`/api/livestock/${encodeURIComponent(animal.id)}/health-records`);
+        if (!response.ok) {
+            container.textContent = 'Health records are unavailable right now.';
+            return;
+        }
+        const records = await response.json();
+        container.innerHTML = '';
+        if (records.length === 0) {
+            container.textContent = 'No health records recorded yet.';
+            return;
+        }
+        records.forEach(record => {
+            const item = document.createElement('div');
+            item.className = 'border rounded p-2 mb-2';
+            const head = document.createElement('div');
+            head.className = 'd-flex justify-content-between align-items-center';
+            const title = document.createElement('span');
+            title.className = 'fw-semibold';
+            title.textContent = `${record.type} - ${record.record_date || 'date unknown'}`;
+            head.appendChild(title);
+            if (canModifyAnimal(animal)) {
+                const del = document.createElement('button');
+                del.className = 'btn btn-sm btn-outline-danger';
+                del.innerHTML = '<i class="bi bi-trash"></i>';
+                del.title = 'Delete record';
+                del.addEventListener('click', () => deleteHealthRecord(animal.id, record.id));
+                head.appendChild(del);
+            }
+            item.appendChild(head);
+            const meta = document.createElement('div');
+            meta.className = 'text-muted';
+            const parts = [];
+            if (record.vet) parts.push(`Vet: ${record.vet}`);
+            if (record.next_due_date) parts.push(`Next due: ${record.next_due_date}`);
+            meta.textContent = parts.join(' · ') || ' ';
+            item.appendChild(meta);
+            if (record.notes) {
+                const notes = document.createElement('div');
+                notes.textContent = record.notes;
+                item.appendChild(notes);
+            }
+            container.appendChild(item);
+        });
+    } catch (error) {
+        container.textContent = 'Could not load health records.';
+    }
+}
+
+function openHealthRecordModal(livestockId) {
+    pendingHealthRecordAnimalId = livestockId;
+    const animal = currentDetailAnimal || {};
+    document.getElementById('health-record-animal').textContent =
+        `${animal.species || ''} ${animal.breed || ''} (${animal.id_tag || livestockId})`.trim();
+    document.getElementById('hr-type').value = 'Vaccination';
+    document.getElementById('hr-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('hr-next-due').value = '';
+    document.getElementById('hr-vet').value = '';
+    document.getElementById('hr-notes').value = '';
+    new bootstrap.Modal(document.getElementById('healthRecordModal')).show();
+}
+
+async function saveHealthRecord() {
+    if (!pendingHealthRecordAnimalId) return;
+    const btn = document.getElementById('save-health-record-btn');
+    btn.disabled = true;
+    try {
+        const body = {
+            type: document.getElementById('hr-type').value,
+            record_date: document.getElementById('hr-date').value,
+            vet: document.getElementById('hr-vet').value,
+            notes: document.getElementById('hr-notes').value,
+            next_due_date: document.getElementById('hr-next-due').value || null
+        };
+        const response = await fetch(
+            `/api/livestock/${encodeURIComponent(pendingHealthRecordAnimalId)}/health-records`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Could not save the health record');
+        }
+        bootstrap.Modal.getInstance(document.getElementById('healthRecordModal'))?.hide();
+        showAlert('Health record saved', 'success');
+        if (currentDetailAnimal) {
+            loadHealthRecordsIntoDetail(currentDetailAnimal);
+            // A vaccination marks the animal as vaccinated on the server
+            if (body.type === 'Vaccination') {
+                currentDetailAnimal.vaccination_status = 'Vaccinated';
+            }
+        }
+        loadVaccinationReminders();
+    } catch (error) {
+        showAlert(error.message, 'danger');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function deleteHealthRecord(livestockId, recordId) {
+    if (!window.confirm('Delete this health record?')) return;
+    try {
+        const response = await fetch(
+            `/api/livestock/${encodeURIComponent(livestockId)}/health-records/${encodeURIComponent(recordId)}`,
+            { method: 'DELETE' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Could not delete the health record');
+        }
+        showAlert('Health record deleted', 'success');
+        if (currentDetailAnimal) loadHealthRecordsIntoDetail(currentDetailAnimal);
+        loadVaccinationReminders();
+    } catch (error) {
+        showAlert(error.message, 'danger');
+    }
+}
+
+/* ---------------- In-app notifications ---------------- */
+
+async function loadNotifications() {
+    if (!currentUser) return;
+    try {
+        const response = await fetch('/api/notifications/');
+        if (!response.ok) return;
+        cachedNotifications = await response.json();
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+    }
+}
+
+async function refreshNotificationBadge() {
+    if (!currentUser) return;
+    try {
+        const response = await fetch('/api/notifications/unread-count');
+        if (!response.ok) return;
+        const data = await response.json();
+        updateNotificationBadge(Number(data.unread) || 0);
+    } catch (error) {
+        // Badge refresh is best-effort
+    }
+}
+
+function updateNotificationBadge(unread) {
+    const badge = document.getElementById('notification-badge');
+    if (!badge) return;
+    badge.textContent = unread > 99 ? '99+' : String(unread);
+    badge.style.display = unread > 0 ? 'inline-block' : 'none';
+}
+
+function renderNotifications() {
+    const list = document.getElementById('notification-list');
+    if (!list) return;
+    updateNotificationBadge(cachedNotifications.filter(n => !n.read).length);
+    list.innerHTML = '';
+    if (cachedNotifications.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'text-muted text-center py-3 small';
+        empty.textContent = 'No notifications yet.';
+        list.appendChild(empty);
+        return;
+    }
+    cachedNotifications.forEach(notification => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'notification-item' + (notification.read ? '' : ' unread');
+
+        const title = document.createElement('div');
+        title.className = 'title';
+        title.textContent = notification.title || notification.type || 'Notification';
+        item.appendChild(title);
+
+        if (notification.message) {
+            const message = document.createElement('div');
+            message.className = 'message';
+            message.textContent = notification.message;
+            item.appendChild(message);
+        }
+
+        const time = document.createElement('div');
+        time.className = 'time';
+        time.textContent = notification.created_at
+            ? new Date(notification.created_at).toLocaleString() : '';
+        item.appendChild(time);
+
+        item.addEventListener('click', async () => {
+            if (!notification.read) {
+                try {
+                    await fetch(`/api/notifications/${encodeURIComponent(notification.id)}/read`,
+                        { method: 'PUT' });
+                    notification.read = true;
+                    item.classList.remove('unread');
+                    updateNotificationBadge(cachedNotifications.filter(n => !n.read).length);
+                } catch (error) {
+                    // Non-blocking
+                }
+            }
+        });
+        list.appendChild(item);
+    });
+}
+
+async function markAllNotificationsRead() {
+    try {
+        await fetch('/api/notifications/read-all', { method: 'PUT' });
+        cachedNotifications.forEach(n => { n.read = true; });
+        renderNotifications();
+    } catch (error) {
+        showAlert('Could not update notifications', 'danger');
+    }
 }
 
 /* ---------------- Marketplace (BUYER) ---------------- */
@@ -625,72 +998,130 @@ async function loadMarketplace() {
 }
 
 function renderMarketplace() {
-    const tableBody = document.getElementById('marketplace-table-body');
-    if (!tableBody) return;
+    const grid = document.getElementById('marketplace-grid');
+    if (!grid) return;
 
     const search = (document.getElementById('marketplace-search')?.value || '').toLowerCase();
     const species = document.getElementById('marketplace-species')?.value || '';
+    const gender = document.getElementById('marketplace-gender')?.value || '';
+    const maxPriceRaw = document.getElementById('marketplace-max-price')?.value || '';
+    const maxPrice = maxPriceRaw === '' ? null : Number(maxPriceRaw);
+    const sort = document.getElementById('marketplace-sort')?.value || '';
 
     const animals = cachedMarketplace.filter(a => {
         if (species && a.species !== species) return false;
+        if (gender && (a.gender || '') !== gender) return false;
+        if (maxPrice !== null && !Number.isNaN(maxPrice)) {
+            const price = Number(a.price);
+            if (Number.isNaN(price) || price > maxPrice) return false;
+        }
         if (search) {
-            const haystack = `${a.species} ${a.breed} ${a.id_tag || ''}`.toLowerCase();
+            const haystack = `${a.species} ${a.breed} ${a.id_tag || ''} ${a.location || ''}`.toLowerCase();
             if (!haystack.includes(search)) return false;
         }
         return true;
     });
 
-    tableBody.innerHTML = '';
+    const byNumber = key => (a, b) => (Number(a[key]) || Infinity) - (Number(b[key]) || Infinity);
+    if (sort === 'price_asc') animals.sort((a, b) => byNumber('price')(a, b));
+    else if (sort === 'price_desc') animals.sort((a, b) => -byNumber('price')(a, b));
+    else if (sort === 'age_asc') animals.sort((a, b) => byNumber('age')(a, b));
+    else if (sort === 'age_desc') animals.sort((a, b) => -byNumber('age')(a, b));
+    else animals.sort((a, b) => new Date(b.created_at || b.date || 0) - new Date(a.created_at || a.date || 0));
+
+    grid.innerHTML = '';
     if (animals.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No livestock available for sale right now.</td></tr>';
+        const empty = document.createElement('div');
+        empty.className = 'col-12 text-center text-muted py-4';
+        empty.textContent = 'No livestock match your filters right now.';
+        grid.appendChild(empty);
         return;
     }
 
     animals.forEach(animal => {
-        const row = document.createElement('tr');
-        const statusBadge = animal.health_status === 'Healthy'
-            ? '<span class="badge bg-success">Healthy</span>'
-            : `<span class="badge bg-danger">${animal.health_status || 'Not Healthy'}</span>`;
+        const col = document.createElement('div');
+        col.className = 'col-6 col-md-4 col-lg-3';
+
+        const card = document.createElement('div');
+        card.className = 'marketplace-card';
+
+        const photoUrls = Array.isArray(animal.photo_urls) ? animal.photo_urls : [];
+        if (photoUrls.length > 0) {
+            const img = document.createElement('img');
+            img.className = 'animal-photo';
+            img.alt = `${animal.species} photo`;
+            img.loading = 'lazy';
+            img.src = photoUrls[0];
+            card.appendChild(img);
+        } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'animal-photo-placeholder';
+            placeholder.innerHTML = '<i class="bi bi-image"></i>';
+            card.appendChild(placeholder);
+        }
+
+        const body = document.createElement('div');
+        body.className = 'card-body d-flex flex-column gap-1';
+
+        const title = document.createElement('div');
+        title.className = 'd-flex justify-content-between align-items-start';
+        const name = document.createElement('strong');
+        name.textContent = `${animal.species} - ${animal.breed}`;
+        title.appendChild(name);
+        const price = document.createElement('span');
+        price.className = 'price';
+        price.textContent = formatPrice(animal.price);
+        title.appendChild(price);
+        body.appendChild(title);
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
         const displayAge = calculateAgeFromDateOfBirth(animal.date_of_birth);
+        meta.textContent = `${animal.gender || 'N/A'} · ${displayAge !== null ? displayAge : (animal.age ?? 'N/A')} yrs · ${animal.weight} kg`;
+        body.appendChild(meta);
+
+        const location = document.createElement('div');
+        location.className = 'meta';
+        location.textContent = `${animal.location || 'Location N/A'} · Seller: ${animal.created_by || 'N/A'}`;
+        body.appendChild(location);
+
+        const actions = document.createElement('div');
+        actions.className = 'd-flex gap-2 align-items-center mt-2';
+
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'btn btn-sm btn-info';
+        viewBtn.title = 'View details';
+        viewBtn.innerHTML = '<i class="bi bi-eye"></i> View';
+        viewBtn.addEventListener('click', () => viewDetails(animal.id));
+        actions.appendChild(viewBtn);
 
         // Hide the Buy button once a purchase request is pending: the buyer
         // who made it sees that they are waiting for approval, and everyone
         // else sees that a purchase is already in progress.
-        let buyControl;
         if (animal.pending_request && animal.pending_request_mine) {
-            buyControl = '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Waiting for approval</span>';
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-warning text-dark';
+            badge.innerHTML = '<i class="bi bi-hourglass-split"></i> Waiting for approval';
+            actions.appendChild(badge);
         } else if (animal.pending_request) {
-            buyControl = `<span class="badge bg-secondary"><i class="bi bi-lock"></i> Purchase pending${animal.pending_buyer ? ` by ${animal.pending_buyer}` : ''}</span>`;
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-secondary';
+            badge.innerHTML = `<i class="bi bi-lock"></i> Purchase pending${animal.pending_buyer ? ` by ${animal.pending_buyer}` : ''}`;
+            actions.appendChild(badge);
         } else {
-            buyControl = `<button class="btn btn-sm btn-success action-btn" data-action="buy" data-id="${animal.id}" title="Buy">
-                    <i class="bi bi-bag-check"></i> Buy
-                </button>`;
+            const buyBtn = document.createElement('button');
+            buyBtn.className = 'btn btn-sm btn-success';
+            buyBtn.title = 'Buy';
+            buyBtn.innerHTML = '<i class="bi bi-bag-check"></i> Buy';
+            buyBtn.addEventListener('click', () => openBuyModal(animal.id));
+            actions.appendChild(buyBtn);
         }
 
-        row.innerHTML = `
-            <td data-label="ID Tag">${animal.id_tag || animal.id}</td>
-            <td data-label="Species"><strong>${animal.species}</strong></td>
-            <td data-label="Breed">${animal.breed}</td>
-            <td data-label="Age">${displayAge !== null ? displayAge : (animal.age ?? 'N/A')}</td>
-            <td data-label="Weight">${animal.weight} kg</td>
-            <td data-label="Status">${statusBadge}</td>
-            <td data-label="Location">${animal.location || 'N/A'}</td>
-            <td data-label="Seller">${animal.created_by || 'N/A'}</td>
-            <td data-label="Price">${formatPrice(animal.price)}</td>
-            <td data-label="Actions" class="table-actions actions-cell">
-                <button class="btn btn-sm btn-info action-btn" data-action="view" data-id="${animal.id}" title="View">
-                    <i class="bi bi-eye"></i>
-                </button>
-                ${buyControl}
-            </td>
-        `;
-        tableBody.appendChild(row);
+        body.appendChild(actions);
+        card.appendChild(body);
+        col.appendChild(card);
+        grid.appendChild(col);
     });
-
-    tableBody.querySelectorAll('[data-action="view"]').forEach(btn =>
-        btn.addEventListener('click', () => viewDetails(btn.dataset.id)));
-    tableBody.querySelectorAll('[data-action="buy"]').forEach(btn =>
-        btn.addEventListener('click', () => openBuyModal(btn.dataset.id)));
 }
 
 async function openBuyModal(id) {
@@ -1266,10 +1697,16 @@ function showAlert(message, type) {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
     alertDiv.role = 'alert';
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
+
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    alertDiv.appendChild(messageSpan);
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'btn-close';
+    closeButton.setAttribute('data-bs-dismiss', 'alert');
+    alertDiv.appendChild(closeButton);
 
     const container = document.getElementById('alerts');
     container.appendChild(alertDiv);
@@ -1277,4 +1714,79 @@ function showAlert(message, type) {
     setTimeout(() => {
         alertDiv.remove();
     }, 5000);
+}
+
+/* ---------------- CSV export (Reports) ---------------- */
+
+function csvCell(value) {
+    const text = value === null || value === undefined ? '' : String(value);
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadCsv(filename, headers, rows) {
+    const lines = [headers.map(csvCell).join(',')];
+    rows.forEach(row => lines.push(row.map(csvCell).join(',')));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function animalCsvRows(animals) {
+    return animals.map(a => [
+        a.id_tag || a.id,
+        a.species,
+        a.breed,
+        calculateAgeFromDateOfBirth(a.date_of_birth) ?? a.age ?? '',
+        a.weight,
+        a.gender,
+        a.health_status,
+        a.vaccination_status || '',
+        a.location || '',
+        a.price ?? '',
+        animalStatus(a),
+        a.created_by || '',
+        a.created_at ? new Date(a.created_at).toLocaleDateString() : ''
+    ]);
+}
+
+function exportAnimalsCsv(animals, filename) {
+    if (!animals || animals.length === 0) {
+        showAlert('There is no data to export.', 'warning');
+        return;
+    }
+    downloadCsv(filename,
+        ['ID Tag', 'Species', 'Breed', 'Age', 'Weight (kg)', 'Gender', 'Health Status',
+            'Vaccination', 'Location', 'Price (R)', 'Status', 'Owner', 'Registered'],
+        animalCsvRows(animals));
+}
+
+async function exportPurchaseRequestsCsv() {
+    if (!currentUser || currentUser.role === 'BUYER') return;
+    try {
+        const response = await fetch('/api/purchases/pending');
+        if (!response.ok) throw new Error('Could not load purchase requests');
+        const requests = await response.json();
+        if (requests.length === 0) {
+            showAlert('There are no pending purchase requests to export.', 'warning');
+            return;
+        }
+        downloadCsv('purchase-requests',
+            ['Animal', 'Buyer', 'Buyer Email', 'Offer Price (R)', 'Status', 'Requested'],
+            requests.map(r => [
+                r.animal_summary || r.livestock_id,
+                r.buyer_name || '',
+                r.buyer_email || '',
+                r.price ?? '',
+                r.status || '',
+                r.created_at ? new Date(r.created_at).toLocaleString() : ''
+            ]));
+    } catch (error) {
+        showAlert(error.message, 'danger');
+    }
 }

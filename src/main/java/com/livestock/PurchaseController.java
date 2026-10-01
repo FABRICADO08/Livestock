@@ -37,17 +37,23 @@ public class PurchaseController {
     private final MongoTemplate mongoTemplate;
     private final AuthSupport auth;
     private final EmailSupport email;
+    private final NotificationSupport notifications;
+    private final RateLimitSupport rateLimits;
 
     public PurchaseController(PurchaseRequestRepository purchaseRepository,
                               LivestockRepository livestockRepository,
                               MongoTemplate mongoTemplate,
                               AuthSupport auth,
-                              EmailSupport email) {
+                              EmailSupport email,
+                              NotificationSupport notifications,
+                              RateLimitSupport rateLimits) {
         this.purchaseRepository = purchaseRepository;
         this.livestockRepository = livestockRepository;
         this.mongoTemplate = mongoTemplate;
         this.auth = auth;
         this.email = email;
+        this.notifications = notifications;
+        this.rateLimits = rateLimits;
     }
 
     public static class CreateRequest {
@@ -59,6 +65,8 @@ public class PurchaseController {
     @PostMapping({"", "/"})
     public Map<String, Object> create(@RequestBody CreateRequest body, HttpSession session) {
         String email = auth.requireEmail(session);
+        // Rate-limit purchase requests per buyer (10 per 5 minutes)
+        rateLimits.check("purchase:" + email.toLowerCase(), 10, 5 * 60_000L);
         if (!"BUYER".equalsIgnoreCase(auth.currentUserRole(session))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only buyers can submit purchase requests");
         }
@@ -97,6 +105,17 @@ public class PurchaseController {
         purchaseRepository.save(request);
 
         notifyOwnerNewRequest(request);
+        notifications.notify(sellerEmail, Notification.TYPE_PURCHASE_CREATED,
+                "New purchase request: " + animalSummary(animal),
+                request.getBuyerName() + " wants to buy " + animalSummary(animal)
+                        + (request.getPrice() != null
+                                ? " for " + priceText(request) : "") + ".",
+                "requests");
+        notifications.notify(email, Notification.TYPE_PURCHASE_CREATED,
+                "Purchase request sent: " + animalSummary(animal),
+                "Your purchase request for " + animalSummary(animal)
+                        + " is waiting for the seller's approval.",
+                "purchases");
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", "success");
@@ -162,6 +181,11 @@ public class PurchaseController {
         request.setResolvedAt(new Date());
         request.setResolvedBy(displayName(email));
         purchaseRepository.save(request);
+        notifications.notify(request.getSellerEmail(), Notification.TYPE_PURCHASE_CANCELLED,
+                "Purchase request cancelled: " + request.getAnimalSummary(),
+                "The buyer cancelled their purchase request for " + request.getAnimalSummary()
+                        + ". Your listing is available again.",
+                "marketplace");
         this.email.send(request.getSellerEmail(),
                 "Purchase Request Cancelled: " + request.getAnimalSummary(),
                 "Hello" + namePart(request.getSellerName()) + ",\n\n"
@@ -230,13 +254,33 @@ public class PurchaseController {
                 other.setResolvedBy(resolver);
                 purchaseRepository.save(other);
                 notifyBuyerDeclined(other);
+                notifications.notify(other.getBuyerEmail(), Notification.TYPE_PURCHASE_DECLINED,
+                        "Purchase request declined: " + other.getAnimalSummary(),
+                        "Your purchase request for " + other.getAnimalSummary()
+                                + " was declined - the animal has been sold.",
+                        "marketplace");
             }
             notifyApproved(request);
+            notifications.notify(request.getBuyerEmail(), Notification.TYPE_PURCHASE_APPROVED,
+                    "Purchase approved: " + request.getAnimalSummary(),
+                    "Good news! Your purchase request for " + request.getAnimalSummary()
+                            + " was approved. The seller will contact you with the next steps.",
+                    "purchases");
+            notifications.notify(request.getSellerEmail(), Notification.TYPE_SALE_COMPLETED,
+                    "Sale completed: " + request.getAnimalSummary(),
+                    "The sale of " + request.getAnimalSummary() + " to "
+                            + request.getBuyerName() + " is confirmed.",
+                    "sold");
             return success("Purchase approved. The animal has been marked as sold.");
         }
 
         purchaseRepository.save(request);
         notifyBuyerDeclined(request);
+        notifications.notify(request.getBuyerEmail(), Notification.TYPE_PURCHASE_DECLINED,
+                "Purchase request declined: " + request.getAnimalSummary(),
+                "Unfortunately the owner declined your purchase request for "
+                        + request.getAnimalSummary() + ".",
+                "marketplace");
         return success("Purchase request declined");
     }
 

@@ -96,6 +96,24 @@
                     </div>
                 </div>
                 <div class="topbar-user">
+                    <div class="dropdown">
+                        <button class="btn btn-link text-decoration-none position-relative p-1"
+                                id="notification-bell" data-bs-toggle="dropdown" aria-expanded="false"
+                                aria-label="Notifications">
+                            <i class="bi bi-bell fs-5 text-secondary"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                  id="notification-badge" style="display:none">0</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end notification-menu p-0" id="notification-menu">
+                            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                                <strong>Notifications</strong>
+                                <button class="btn btn-sm btn-link text-decoration-none" id="notifications-mark-all">Mark all read</button>
+                            </div>
+                            <div id="notification-list" class="notification-list">
+                                <div class="text-muted text-center py-3 small">No notifications yet.</div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="meta">
                         <div class="name" id="topbar-name">…</div>
                         <div class="role" id="topbar-role"></div>
@@ -198,6 +216,15 @@
                                 <button class="btn btn-outline-secondary text-start" data-goto-view="animals"><i class="bi bi-bucket me-2"></i>View Animals</button>
                                 <button class="btn btn-outline-secondary text-start" id="qa-refresh"><i class="bi bi-arrow-clockwise me-2"></i>Refresh Data</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4" id="vaccination-due-card" style="display:none">
+                    <div class="col-12">
+                        <div class="panel-card">
+                            <div class="panel-header"><span><i class="bi bi-syringe me-2"></i>Vaccination Reminders</span></div>
+                            <div class="panel-body" id="vaccination-due-list"></div>
                         </div>
                     </div>
                 </div>
@@ -332,36 +359,37 @@
                     </div>
                     <div class="panel-body">
                         <div class="row g-2 mb-3">
-                            <div class="col-12 col-md-8">
+                            <div class="col-12 col-lg-4">
                                 <input type="text" id="marketplace-search" class="form-control" placeholder="Search by species, breed, or ID tag...">
                             </div>
-                            <div class="col-12 col-md-4">
+                            <div class="col-6 col-md-4 col-lg-2">
                                 <select id="marketplace-species" class="form-select">
                                     <option value="">All Species</option>
                                     <option value="Cattle">Cattle</option>
                                     <option value="Sheep">Sheep</option>
                                 </select>
                             </div>
+                            <div class="col-6 col-md-4 col-lg-2">
+                                <select id="marketplace-gender" class="form-select">
+                                    <option value="">Any Gender</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                </select>
+                            </div>
+                            <div class="col-6 col-md-4 col-lg-2">
+                                <input type="number" min="0" id="marketplace-max-price" class="form-control" placeholder="Max price (R)">
+                            </div>
+                            <div class="col-6 col-md-4 col-lg-2">
+                                <select id="marketplace-sort" class="form-select">
+                                    <option value="">Newest first</option>
+                                    <option value="price_asc">Price: low to high</option>
+                                    <option value="price_desc">Price: high to low</option>
+                                    <option value="age_asc">Age: youngest</option>
+                                    <option value="age_desc">Age: oldest</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="table-responsive-lg">
-                            <table class="table table-hover mb-0 mobile-card-table">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>ID Tag</th>
-                                        <th>Species</th>
-                                        <th>Breed</th>
-                                        <th>Age</th>
-                                        <th>Weight</th>
-                                        <th>Status</th>
-                                        <th>Location</th>
-                                        <th>Seller</th>
-                                        <th>Price</th>
-                                        <th class="table-actions text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="marketplace-table-body"></tbody>
-                            </table>
-                        </div>
+                        <div class="row g-3" id="marketplace-grid"></div>
                     </div>
                 </div>
             </section>
@@ -546,6 +574,15 @@
                         </div>
                     </div>
                 </div>
+                <div class="panel-card mb-3">
+                    <div class="panel-header"><span><i class="bi bi-download me-2"></i>Export Data (CSV)</span></div>
+                    <div class="panel-body d-flex flex-wrap gap-2">
+                        <button class="btn btn-sm btn-outline-primary" id="export-animals"><i class="bi bi-bucket"></i> Animals</button>
+                        <button class="btn btn-sm btn-outline-primary" id="export-sold"><i class="bi bi-check2-circle"></i> Sold Animals</button>
+                        <button class="btn btn-sm btn-outline-primary" id="export-dead"><i class="bi bi-x-octagon"></i> Dead Animals</button>
+                        <button class="btn btn-sm btn-outline-primary" id="export-requests"><i class="bi bi-inbox"></i> Pending Purchase Requests</button>
+                    </div>
+                </div>
                 <div class="panel-card">
                     <div class="panel-header">
                         <span>Species Breakdown</span>
@@ -690,6 +727,52 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="viewModalBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health record modal -->
+    <div class="modal fade" id="healthRecordModal" tabindex="-1">
+        <div class="modal-dialog modal-fullscreen-sm-down">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Add Health Record</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="health-record-animal" class="fw-semibold mb-3"></p>
+                    <div class="mb-3">
+                        <label for="hr-type" class="form-label fw-bold">Type</label>
+                        <select class="form-select" id="hr-type">
+                            <option value="Vaccination">Vaccination</option>
+                            <option value="Treatment">Treatment</option>
+                            <option value="Checkup">Checkup</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="hr-date" class="form-label fw-bold">Date</label>
+                            <input type="date" class="form-control" id="hr-date">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="hr-next-due" class="form-label fw-bold">Next Due Date</label>
+                            <input type="date" class="form-control" id="hr-next-due">
+                            <div class="form-text">For vaccinations - drives the due reminders.</div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="hr-vet" class="form-label fw-bold">Vet / Administrator</label>
+                        <input type="text" class="form-control" id="hr-vet" placeholder="e.g., Dr. Smith">
+                    </div>
+                    <div class="mb-3">
+                        <label for="hr-notes" class="form-label fw-bold">Notes</label>
+                        <textarea class="form-control" id="hr-notes" rows="2" placeholder="e.g., Annual clostridial vaccine"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="save-health-record-btn"><i class="bi bi-clipboard2-pulse"></i> Save Record</button>
+                </div>
             </div>
         </div>
     </div>

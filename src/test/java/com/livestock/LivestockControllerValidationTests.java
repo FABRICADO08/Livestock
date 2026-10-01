@@ -34,6 +34,15 @@ class LivestockControllerValidationTests {
     private UserRepository userRepository;
 
     @MockBean
+    private PurchaseRequestRepository purchaseRepository;
+
+    @MockBean
+    private HealthRecordRepository healthRecordRepository;
+
+    @MockBean
+    private NotificationSupport notifications;
+
+    @MockBean
     private MongoTemplate mongoTemplate;
 
     @MockBean
