@@ -16,7 +16,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatus(ResponseStatusException ex) {
-        return ResponseEntity.status(ex.getStatus()).body(errorBody(ex.getReason()));
+        return ResponseEntity.status(ex.getStatusCode()).body(errorBody(ex.getReason()));
     }
 
     @ExceptionHandler(Exception.class)

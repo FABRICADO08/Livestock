@@ -732,6 +732,17 @@ async function viewDetails(id) {
         addHealthBtn.addEventListener('click', () => openHealthRecordModal(animal.id));
     }
 
+    // Let the user jump straight from viewing an animal to editing it
+    const editBtn = document.getElementById('view-edit-btn');
+    if (editBtn) {
+        const canModify = canModifyAnimal(animal);
+        editBtn.style.display = canModify ? '' : 'none';
+        editBtn.onclick = () => {
+            bootstrap.Modal.getInstance(document.getElementById('viewModal'))?.hide();
+            editAnimal(animal.id);
+        };
+    }
+
     new bootstrap.Modal(document.getElementById('viewModal')).show();
     loadHealthRecordsIntoDetail(animal);
 }

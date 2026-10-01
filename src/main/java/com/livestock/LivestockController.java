@@ -13,7 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -314,12 +314,6 @@ public class LivestockController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Date of birth is required in YYYY-MM-DD format and cannot be in the future");
         }
-        boolean idTagChanged = animal.getIdTag() != null
-                && !animal.getIdTag().trim().equalsIgnoreCase(
-                        existing.getIdTag() == null ? "" : existing.getIdTag().trim());
-        if (idTagChanged) {
-            ensureIdTagAvailable(animal.getIdTag(), existing.getId());
-        }
 
         existing.setSpecies(animal.getSpecies());
         existing.setBreed(animal.getBreed());
@@ -333,7 +327,8 @@ public class LivestockController {
         existing.setProductionType(animal.getProductionType());
         existing.setVaccinationStatus(animal.getVaccinationStatus());
         existing.setLocation(animal.getLocation());
-        existing.setIdTag(animal.getIdTag());
+        // The ID tag is immutable once the record exists, so an update never
+        // changes it and never re-checks it for uniqueness.
         existing.setNotes(animal.getNotes());
         if (animal.getForSale() != null) {
             existing.setForSale(animal.getForSale());
