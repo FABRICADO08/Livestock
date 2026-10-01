@@ -241,6 +241,14 @@ async function loadAnimalForEdit() {
         document.getElementById('vaccination-status').value = animal.vaccination_status || '';
         document.getElementById('location').value = animal.location || '';
         document.getElementById('id-tag').value = animal.id_tag || '';
+        // The ID tag is fixed once the animal exists: it cannot be edited on
+        // update, so make the field read-only and skip the duplicate check.
+        const idTagInput = document.getElementById('id-tag');
+        idTagInput.readOnly = true;
+        idTagInput.classList.add('bg-light');
+        idTagInput.title = 'ID tag cannot be changed after the animal is created';
+        const idTagHint = document.getElementById('id-tag-hint');
+        if (idTagHint) idTagHint.style.display = '';
         originalIdTag = animal.id_tag || '';
         document.getElementById('price').value = animal.price ?? '';
         document.getElementById('for-sale').checked = animal.for_sale !== false;

@@ -16,21 +16,21 @@ A responsive web application for managing livestock records with MongoDB persist
 - Email notifications: the animal owner and buyer are emailed when a purchase request is created, approved, declined or cancelled (requires SMTP settings, see Environment Variables)
 - New sign-ins default to `USER`; admins can change a user's role to `BUYER` in User Management
 - Audit trail per record (`created_by`, `updated_by`, `created_at`, `updated_at`) - records store the owner's full name plus their email (`created_by_email`)
-- ID tags (`id_tag`) are unique - an animal cannot be saved with a tag already used by another record
+- ID tags (`id_tag`) are unique - an animal cannot be saved with a tag already used by another record, and the tag cannot be changed once the record exists
 - User collection with name, role and login tracking
 - CRUD dashboard with search/filter/statistics
 
 ## Technology Stack
 
-- Java 11
-- Spring Boot 2.7 (embedded Tomcat)
+- Java 25
+- Spring Boot 3.5 (embedded Tomcat)
 - Spring Data MongoDB
 - HTML5 + Bootstrap 5 + JavaScript
 - Gson
 
 ## Prerequisites
 
-- JDK 11+
+- JDK 25+
 - Maven
 - MongoDB (local instance or MongoDB Atlas connection string)
 - Google Cloud OAuth 2.0 Client ID (Web application)
@@ -118,7 +118,7 @@ Render builds the Docker image from `DockerFile` (multi-stage Maven build, then 
 - `GET /api/livestock/{id}` – fetch a single record (any signed-in user)
 - `GET /api/livestock/marketplace` – livestock listed for sale (any signed-in user); each entry includes `pending_request`, `pending_request_mine` and `pending_buyer` flags when a purchase is awaiting approval
 - `POST /api/livestock/` – create a record (ADMIN/USER; `id_tag` must be unique)
-- `PUT /api/livestock/{id}` – update a record (owner or ADMIN; `id_tag` must stay unique)
+- `PUT /api/livestock/{id}` – update a record (owner or ADMIN; `id_tag` is fixed at creation and cannot be changed on update)
 - `DELETE /api/livestock/{id}` – delete a record (owner or ADMIN)
 - `GET /api/livestock/stats` – dashboard statistics
 - `POST /api/purchases` – submit a purchase request (`livestock_id`, optional `price`) (BUYER)

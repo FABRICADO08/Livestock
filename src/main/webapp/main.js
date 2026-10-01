@@ -606,6 +606,18 @@ async function viewDetails(id) {
         <p><strong>Updated By:</strong> ${animal.updated_by || 'N/A'}</p>
         <p><small class="text-muted">Created: ${animal.created_at ? new Date(animal.created_at).toLocaleString() : 'N/A'} | Updated: ${animal.updated_at ? new Date(animal.updated_at).toLocaleString() : 'N/A'}</small></p>
     `;
+
+    // Let the user jump straight from viewing an animal to editing it
+    const editBtn = document.getElementById('view-edit-btn');
+    if (editBtn) {
+        const canModify = canModifyAnimal(animal);
+        editBtn.style.display = canModify ? '' : 'none';
+        editBtn.onclick = () => {
+            bootstrap.Modal.getInstance(document.getElementById('viewModal'))?.hide();
+            editAnimal(animal.id);
+        };
+    }
+
     new bootstrap.Modal(document.getElementById('viewModal')).show();
 }
 
