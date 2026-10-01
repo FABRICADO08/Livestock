@@ -17,6 +17,10 @@
 
   <properties>
     <java.version>25</java.version>
+    <!-- Override Spring Boot managed versions to pull in security patches ahead of the next Spring Boot release -->
+    <tomcat.version>10.1.60</tomcat.version>
+    <jackson-bom.version>2.22.3</jackson-bom.version>
+    <log4j2.version>2.26.1</log4j2.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
@@ -40,7 +44,6 @@
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
-      <version>2.10.1</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
