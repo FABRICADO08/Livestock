@@ -117,7 +117,7 @@ Set these environment variables in the Render dashboard:
 
 ## SonarQube Analysis
 
-To enable the optional SonarQube GitHub Actions job, import this project into a SonarQube instance and configure the repository Actions secrets `SONAR_TOKEN` (a SonarQube analysis token) and `SONAR_HOST_URL` (the server URL), plus the repository Actions variable `SONAR_PROJECT_KEY` (the imported project's key). Without all three settings, the job succeeds without scanning and records a skip notice in its job summary.
+To enable the optional SonarQube GitHub Actions job, import this project into a SonarQube instance and configure the repository Actions secrets `SONAR_TOKEN` (a SonarQube analysis token) and `SONAR_HOST_URL` (the server URL), plus the repository Actions variable `SONAR_PROJECT_KEY` (the imported project's key). Without all three settings, the job succeeds without scanning and records a skip notice in its job summary. Fork pull requests skip the job entirely because repository secrets are unavailable to them.
 
 ## API Endpoints
 
