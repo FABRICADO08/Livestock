@@ -55,6 +55,32 @@
   <build>
     <finalName>livestock</finalName>
     <plugins>
+      <!-- src/main/webapp is the single source of truth for the frontend;
+           this refreshes the served copies under src/main/resources/static -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>sync-webapp-to-static</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.basedir}/src/main/resources/static</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/src/main/webapp</directory>
+                  <excludes>
+                    <exclude>WEB-INF/**</exclude>
+                  </excludes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
