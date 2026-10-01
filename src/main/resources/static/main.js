@@ -526,6 +526,7 @@ function displayLivestock(animals) {
         const displayAge = calculateAgeFromDateOfBirth(animal.date_of_birth);
         const canModify = canModifyAnimal(animal);
         const createdAt = animal.created_at || animal.date;
+        const isActive = animalStatus(animal) === 'ACTIVE';
 
         row.innerHTML = `
             <td data-label="ID Tag">${animal.id_tag || animal.id}</td>
@@ -546,6 +547,9 @@ function displayLivestock(animals) {
                 <button class="btn btn-sm btn-warning action-btn" data-action="edit" data-id="${animal.id}" title="Edit" ${canModify ? '' : 'disabled'}>
                     <i class="bi bi-pencil"></i>
                 </button>
+                <button class="btn btn-sm btn-dark action-btn" data-action="dead" data-id="${animal.id}" title="Mark as Dead" ${canModify && isActive ? '' : 'disabled'}>
+                    <i class="bi bi-heartbreak"></i>
+                </button>
                 <button class="btn btn-sm btn-danger action-btn" data-action="delete" data-id="${animal.id}" title="Delete" ${canModify ? '' : 'disabled'}>
                     <i class="bi bi-trash"></i>
                 </button>
@@ -558,6 +562,8 @@ function displayLivestock(animals) {
         btn.addEventListener('click', () => viewDetails(btn.dataset.id)));
     tableBody.querySelectorAll('[data-action="edit"]').forEach(btn =>
         btn.addEventListener('click', () => editAnimal(btn.dataset.id)));
+    tableBody.querySelectorAll('[data-action="dead"]').forEach(btn =>
+        btn.addEventListener('click', () => markAnimalDead(btn.dataset.id)));
     tableBody.querySelectorAll('[data-action="delete"]').forEach(btn =>
         btn.addEventListener('click', () => deleteAnimal(btn.dataset.id)));
 }
@@ -673,6 +679,35 @@ async function deleteAnimal(id) {
     }
 }
 
+async function markAnimalDead(id) {
+    const animal = cachedAnimals.find(a => String(a.id) === String(id));
+    if (!animal) {
+        showAlert('Animal not found', 'danger');
+        return;
+    }
+    if (!canModifyAnimal(animal)) {
+        showAlert('You can only update your own records', 'warning');
+        return;
+    }
+    if (!confirm(`Mark ${animal.species} (${animal.id_tag || id}) as dead? It will be moved to the Dead list.`)) return;
+
+    try {
+        const response = await fetch(`/api/livestock/${id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'DEAD' })
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Could not mark animal as dead');
+        }
+        showAlert('Animal marked as dead.', 'success');
+        await loadLivestock();
+    } catch (error) {
+        showAlert('Error updating status: ' + error.message, 'danger');
+    }
+}
+
 async function viewDetails(id) {
     const animal = cachedAnimals.find(a => String(a.id) === String(id))
         || cachedSoldAnimals.find(a => String(a.id) === String(id))
@@ -752,6 +787,17 @@ async function viewDetails(id) {
         editBtn.onclick = () => {
             bootstrap.Modal.getInstance(document.getElementById('viewModal'))?.hide();
             editAnimal(animal.id);
+        };
+    }
+
+    // Allow marking a live animal as dead straight from the details view
+    const deadBtn = document.getElementById('view-dead-btn');
+    if (deadBtn) {
+        const canMark = canModifyAnimal(animal) && animalStatus(animal) === 'ACTIVE';
+        deadBtn.style.display = canMark ? '' : 'none';
+        deadBtn.onclick = () => {
+            bootstrap.Modal.getInstance(document.getElementById('viewModal'))?.hide();
+            markAnimalDead(animal.id);
         };
     }
 

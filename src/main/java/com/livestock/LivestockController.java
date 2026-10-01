@@ -366,9 +366,37 @@ public class LivestockController {
         return success("Record updated successfully", HttpStatus.OK.value());
     }
 
-    @DeleteMapping("/{id}")
-    public Map<String, Object> delete(@PathVariable("id") String id, HttpSession session) {
+    @PutMapping("/{id}/status")
+    public Map<String, Object> updateStatus(@PathVariable("id") String id,
+                                            @RequestBody Map<String, String> input,
+                                            HttpSession session) {
         String email = auth.requireEmail(session);
+        requireNonBuyer(session);
+        Livestock existing = requireOwnedRecord(id, session, email);
+
+        String requested = input.getOrDefault("status", "");
+        String normalized = requested == null ? "" : requested.trim().toUpperCase();
+        // Only allow marking a live animal as dead or undoing that (back to
+        // active); SOLD stays managed by the purchase flow.
+        if (!"DEAD".equals(normalized) && !"ACTIVE".equals(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Status must be DEAD or ACTIVE");
+        }
+        if ("SOLD".equals(statusOrDefault(existing))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A sold animal cannot change status");
+        }
+
+        existing.setStatus(normalized);
+        existing.setUpdatedBy(displayName(email));
+        existing.setUpdatedByEmail(email);
+        existing.setUpdatedAt(new Date());
+        livestockRepository.save(existing);
+        return success("Animal marked as " + normalized.toLowerCase(), HttpStatus.OK.value());
+    }
+
+    @DeleteMapping("/{id}")
+    public Map<String, Object> delete(@PathVariable("id") String id, HttpSession session) {        String email = auth.requireEmail(session);
         requireNonBuyer(session);
         Livestock existing = requireOwnedRecord(id, session, email);
         livestockRepository.delete(existing);

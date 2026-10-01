@@ -1,8 +1,10 @@
 package com.livestock;
 
 import java.io.FileInputStream;
+import java.util.Optional;
 import java.util.Properties;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,6 +16,12 @@ import org.springframework.web.server.ResponseStatusException;
  */
 @Component
 public class AuthSupport {
+
+    private final ObjectProvider<UserRepository> userRepository;
+
+    public AuthSupport(ObjectProvider<UserRepository> userRepository) {
+        this.userRepository = userRepository;
+    }
 
     public String getConfigValue(String key) {
         String value = System.getenv(key);
@@ -54,7 +62,15 @@ public class AuthSupport {
     }
 
     public void requireAdmin(HttpSession session) {
-        String role = currentUserRole(session);
+        String email = currentUserEmail(session);
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+        // Resolve the role from the database rather than trusting the session
+        // attribute, so role changes (or a stale session) do not lock admins
+        // out of the sellers list.
+        String role = resolveRole(email, currentUserRole(session));
+        session.setAttribute("userRole", role);
         if (!"ADMIN".equalsIgnoreCase(role)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrator access required");
         }
@@ -80,5 +96,18 @@ public class AuthSupport {
         }
         String normalized = role.trim().toUpperCase();
         return "ADMIN".equals(normalized) || "USER".equals(normalized) || "BUYER".equals(normalized);
+    }
+
+    private String resolveRole(String email, String fallbackRole) {
+        UserRepository repo = userRepository.getIfAvailable();
+        if (repo != null) {
+            Optional<User> user = repo.findAll().stream()
+                    .filter(u -> u.getEmail() != null && u.getEmail().equalsIgnoreCase(email))
+                    .findFirst();
+            if (user.isPresent()) {
+                return normalizeRole(user.get().getRole());
+            }
+        }
+        return normalizeRole(fallbackRole);
     }
 }
