@@ -105,7 +105,9 @@ Open `http://localhost:8080`, sign in with Google, then manage records.
 
 ## Deploy on Render
 
-Render builds the Docker image from `DockerFile` (multi-stage Maven build, then runs the Spring Boot jar). Set these environment variables in the Render dashboard:
+Render builds the Docker image from `DockerFile` (multi-stage Maven build, then runs the Spring Boot jar). Configure the service to deploy from the `main` branch and disable Render's automatic deploys. Create a Render deploy hook and save its URL as the GitHub repository secret `RENDER_DEPLOY_HOOK`. The GitHub Actions workflow triggers that hook only when a pull request targeting `main` is merged; closing an unmerged pull request does not deploy.
+
+Set these environment variables in the Render dashboard:
 
 - `MONGO_URI` – MongoDB connection string
 - `GOOGLE_CLIENT_ID` – Google OAuth client ID
