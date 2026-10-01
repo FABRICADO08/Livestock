@@ -115,6 +115,10 @@ Set these environment variables in the Render dashboard:
 - `PORT` – injected automatically by Render
 - `MAIL_HOST`, `MAIL_PORT` (default 587), `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` – optional SMTP settings for owner/buyer notification emails; email sending is skipped when `MAIL_HOST` is not set. Emails are sent in the background and the SMTP connection is tested at startup: if the server is unreachable (e.g. Render free web services block outbound SMTP ports 25/465/587, so Gmail SMTP will time out), email notifications are disabled automatically with a single log line instead of failing on every email. To send email from Render, use an HTTP-based provider (SendGrid, Mailgun, Resend) or a paid instance with SMTP allowed.
 
+## SonarQube Analysis
+
+To enable the optional SonarQube GitHub Actions job, import this project into a SonarQube instance and configure the repository Actions secrets `SONAR_TOKEN` (a SonarQube analysis token) and `SONAR_HOST_URL` (the server URL), plus the repository Actions variable `SONAR_PROJECT_KEY` (the imported project's key). Without all three settings, the job succeeds without scanning and records a skip notice in its job summary.
+
 ## API Endpoints
 
 - `POST /api/auth/google` – authenticate with Google credential token
