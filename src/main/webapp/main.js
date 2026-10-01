@@ -98,7 +98,7 @@ function setupEventListeners() {
     const exportDead = document.getElementById('export-dead');
     if (exportDead) exportDead.addEventListener('click', () => exportAnimalReport('DEAD', 'dead-animals'));
     const exportRequests = document.getElementById('export-requests');
-    if (exportRequests) exportRequests.addEventListener('click', exportPurchaseRequestsCsv);
+    if (exportRequests) exportRequests.addEventListener('click', exportPurchaseRequestsXlsx);
 
     const requestsRefresh = document.getElementById('requests-refresh');
     if (requestsRefresh) requestsRefresh.addEventListener('click', loadPurchaseRequests);
@@ -1796,29 +1796,26 @@ function showAlert(message, type) {
     }, 5000);
 }
 
-/* ---------------- CSV export (Reports) ---------------- */
+/* ---------------- XLSX export (Reports) ---------------- */
 
-function csvCell(value) {
+function xlsxCell(value) {
     let text = value === null || value === undefined ? '' : String(value);
     if (/^[\s\u0000-\u001f]*[=+\-@]/.test(text)) text = "'" + text;
-    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    return text;
 }
 
-function downloadCsv(filename, headers, rows) {
-    const lines = [headers.map(csvCell).join(',')];
-    rows.forEach(row => lines.push(row.map(csvCell).join(',')));
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${filename}-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+function downloadXlsx(filename, headers, rows) {
+    const data = [headers.map(xlsxCell), ...rows.map(row => row.map(xlsxCell))];
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    worksheet['!cols'] = headers.map((header, index) => ({
+        wch: Math.max(String(header).length, ...rows.map(row => xlsxCell(row[index]).length)) + 2
+    }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+    XLSX.writeFile(workbook, `${filename}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
-function animalCsvRows(animals) {
+function animalXlsxRows(animals) {
     return animals.map(a => [
         a.id_tag || a.id,
         a.species,
@@ -1836,27 +1833,27 @@ function animalCsvRows(animals) {
     ]);
 }
 
-function exportAnimalsCsv(animals, filename) {
+function exportAnimalsXlsx(animals, filename) {
     if (!animals || animals.length === 0) {
         showAlert('There is no data to export.', 'warning');
         return;
     }
-    downloadCsv(filename,
+    downloadXlsx(filename,
         ['ID Tag', 'Species', 'Breed', 'Age', 'Weight (kg)', 'Gender', 'Health Status',
             'Vaccination', 'Location', 'Price (R)', 'Status', 'Owner', 'Registered'],
-        animalCsvRows(animals));
+        animalXlsxRows(animals));
 }
 
 async function exportAnimalReport(status, filename) {
     try {
         const animals = await loadAllByStatus(status);
-        exportAnimalsCsv(currentUser.role === 'ADMIN' ? animals : animals.filter(isOwnAnimal), filename);
+        exportAnimalsXlsx(currentUser.role === 'ADMIN' ? animals : animals.filter(isOwnAnimal), filename);
     } catch (error) {
         showAlert('Could not load animal records for export.', 'danger');
     }
 }
 
-async function exportPurchaseRequestsCsv() {
+async function exportPurchaseRequestsXlsx() {
     if (!currentUser || currentUser.role === 'BUYER') return;
     try {
         const response = await fetch('/api/purchases/pending');
@@ -1866,7 +1863,7 @@ async function exportPurchaseRequestsCsv() {
             showAlert('There are no pending purchase requests to export.', 'warning');
             return;
         }
-        downloadCsv('purchase-requests',
+        downloadXlsx('purchase-requests',
             ['Animal', 'Buyer', 'Buyer Email', 'Offer Price (R)', 'Status', 'Requested'],
             requests.map(r => [
                 r.animal_summary || r.livestock_id,
