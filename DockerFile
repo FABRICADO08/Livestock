@@ -8,11 +8,20 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:25-jre
 WORKDIR /app
 
+# curl is needed for the container health check below
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/*
+
 # Copy the executable JAR from the build stage
 COPY --from=build /app/target/livestock.jar /app/livestock.jar
 
 # Render injects PORT at runtime (defaults to 8080 locally)
 EXPOSE 8080
+
+# Liveness probe against the actuator health endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -fsS "http://localhost:${PORT:-8080}/actuator/health" || exit 1
 
 # Start the application
 CMD ["java", "-jar", "livestock.jar"]

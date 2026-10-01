@@ -103,6 +103,10 @@ java -jar target/livestock.jar
 
 Open `http://localhost:8080`, sign in with Google, then manage records.
 
+## Frontend Development
+
+Edit frontend files (HTML/JS/CSS) in `src/main/webapp/` only. During the build, Maven automatically copies them to `src/main/resources/static/`, which is what the packaged jar serves — so there is a single source of truth and no manual syncing. A container health check is available at `/actuator/health`.
+
 ## Deploy on Render
 
 Render builds the Docker image from `DockerFile` (multi-stage Maven build, then runs the Spring Boot jar). Configure the service to deploy from the `main` branch and disable Render's automatic deploys. Create a Render deploy hook and save its URL as the GitHub repository secret `RENDER_DEPLOY_HOOK`. The GitHub Actions workflow triggers that hook only when a pull request targeting `main` is merged; closing an unmerged pull request does not deploy.
