@@ -14,8 +14,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,16 +26,16 @@ class HealthRecordControllerTests {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private HealthRecordRepository healthRecordRepository;
 
-    @MockBean
+    @MockitoBean
     private LivestockRepository livestockRepository;
 
-    @MockBean
+    @MockitoBean
     private AuthSupport auth;
 
-    @MockBean
+    @MockitoBean
     private NotificationSupport notifications;
 
     private MockHttpSession sessionAs(String email) {
